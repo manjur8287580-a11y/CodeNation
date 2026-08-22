@@ -74,9 +74,20 @@
   html,
   body,
   #root {
-    height: 100%;
     margin: 0;
     padding: 0;
+  }
+
+  /* min-height, NOT height. With `height: 100%` the app would be locked to
+     exactly one screen tall and every longer page would spill out of its
+     own box — which quietly breaks anything that needs a real height to
+     measure against, such as the Leaflet map container. */
+  html,
+  body {
+    min-height: 100%;
+  }
+  #root {
+    min-height: 100vh;
   }
 
   body {
@@ -87,7 +98,11 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
 
-    /* A faint survey grid. Reads as "operations console" without shouting. */
+    /* A faint survey grid. Reads as "operations console" without shouting.
+       Note: deliberately NOT background-attachment: fixed. A fixed
+       background forces the browser to repaint the entire page on every
+       scroll frame, and because this grid is uniform it would look
+       identical anyway. */
     background-image:
       radial-gradient(circle at 12% 8%, rgba(111, 214, 214, 0.05), transparent 42%),
       repeating-linear-gradient(
@@ -104,7 +119,7 @@
         transparent 1px,
         transparent 64px
       );
-    background-attachment: fixed;
+    background-repeat: no-repeat, repeat, repeat;
   }
 
   button {
@@ -144,10 +159,19 @@
     border: 1px solid var(--line);
     border-radius: var(--radius);
     padding: 18px 20px;
+
+    /* min-width: 0 is essential, not cosmetic.
+       A card is usually a grid or flex item, and those default to
+       `min-width: auto` — meaning they refuse to shrink below the widest
+       thing inside them. A wide table would therefore stretch the card
+       past the edge of a phone screen instead of scrolling inside it.
+       Setting 0 here lets .table-scroll do its job. */
+    min-width: 0;
   }
 
   .card-tight {
     padding: 14px 16px;
+    min-width: 0;
   }
 
   /* Card that is itself a button/link — lifts slightly on hover. */

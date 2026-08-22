@@ -339,8 +339,9 @@ export default function Expeditions({ goTo }) {
               {
                 header: 'Dates',
                 width: '116px',
+                mono: true,
                 cell: (r) => (
-                  <span className="mono text-[11px] text-mid">
+                  <span className="text-[11px] text-mid">
                     {formatDate(r.start_date)}
                     <br />
                     {formatDate(r.end_date)}

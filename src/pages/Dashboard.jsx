@@ -175,8 +175,10 @@ export default function Dashboard({ goTo }) {
               },
               {
                 header: 'Ends',
-                width: '104px',
-                cell: (r) => <span className="mono text-[11.5px]">{formatDate(r.end_date)}</span>,
+                width: '108px',
+                mono: true,
+                className: 'text-[11.5px]',
+                cell: (r) => formatDate(r.end_date),
               },
               {
                 header: 'Progress',
