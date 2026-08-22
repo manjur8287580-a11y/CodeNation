@@ -1,0 +1,510 @@
+/* ============================================================
+   POLAR COMMAND CENTER — design system
+   ============================================================
+
+   These three @tailwind lines pull in Tailwind's utility classes.
+   Do not remove them.
+
+   Everything below them is our own design system, ported from the
+   v1 prototype (legacy/public/styles.css) so the look is preserved.
+
+   HOW THE STYLING WORKS IN THIS PROJECT (two tools, on purpose):
+     1. Tailwind utility classes    -> layout. e.g. "flex gap-4 p-5"
+     2. Our own component classes   -> appearance. e.g. "card" "badge"
+
+   That split keeps the JSX readable. You get short layout classes
+   instead of thirty utilities glued together on every card.
+   ============================================================ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- 1. TOKENS ----------
+   Every colour and font in the app comes from this one block.
+   Change a value here and it updates everywhere. This is why the
+   app looks consistent instead of looking like a template.
+
+   Subject: a field-operations command console for polar logistics.
+   Palette: deep glacier navy surfaces, ice-teal accent,
+            signal orange for alerts, amber for warnings.
+   Type:    Oswald   - condensed display, console headers
+            Inter    - body and UI text
+            JetBrains Mono - data: IDs, timestamps, coordinates, quantities
+*/
+:root {
+  /* Surfaces, darkest to lightest */
+  --navy-950: #08111a;
+  --navy-900: #0c1a26;
+  --navy-850: #102331;
+  --navy-800: #152b3b;
+  --navy-700: #1c3a4e;
+  --navy-600: #2a4e64;
+  --line: #223d4c;
+  --line-soft: #18303d;
+
+  /* Accent + signal colours */
+  --ice: #6fd6d6;
+  --ice-dim: #3c7a80;
+  --orange: #ff6a3d;
+  --amber: #e8b84b;
+  --green: #4fc98a;
+  --red: #ff5a5a;
+  --blue: #5aa9ff;
+  --violet: #a98bff;
+
+  /* Text, highest to lowest emphasis */
+  --ink-hi: #eaf3f5;
+  --ink-mid: #a5bdc7;
+  --ink-low: #6a8593;
+
+  --font-display: 'Oswald', 'Arial Narrow', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius: 3px;
+}
+
+/* ---------- 2. BASE ---------- */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: var(--navy-950);
+    color: var(--ink-hi);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+
+    /* A faint survey grid. Reads as "operations console" without shouting. */
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(111, 214, 214, 0.05), transparent 42%),
+      repeating-linear-gradient(
+        0deg,
+        rgba(111, 214, 214, 0.022) 0px,
+        rgba(111, 214, 214, 0.022) 1px,
+        transparent 1px,
+        transparent 64px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        rgba(111, 214, 214, 0.022) 0px,
+        rgba(111, 214, 214, 0.022) 1px,
+        transparent 1px,
+        transparent 64px
+      );
+    background-attachment: fixed;
+  }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  /* Keyboard users must always be able to see where they are. */
+  :focus-visible {
+    outline: 2px solid var(--ice);
+    outline-offset: 2px;
+  }
+
+  /* Scrollbars, styled to match the dark console instead of the OS default. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--navy-950);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--navy-700);
+    border-radius: 5px;
+    border: 2px solid var(--navy-950);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--navy-600);
+  }
+}
+
+/* ---------- 3. COMPONENT CLASSES ---------- */
+@layer components {
+  /* --- Cards and panels --- */
+  .card {
+    background-color: var(--navy-900);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+  }
+
+  .card-tight {
+    padding: 14px 16px;
+  }
+
+  /* Card that is itself a button/link — lifts slightly on hover. */
+  .card-interactive {
+    transition:
+      border-color 0.14s ease,
+      background-color 0.14s ease;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+  }
+  .card-interactive:hover {
+    border-color: var(--ice-dim);
+    background-color: var(--navy-850);
+  }
+
+  .panel-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 14px;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--ink-hi);
+  }
+
+  .panel-subtitle {
+    font-family: var(--font-body);
+    font-size: 11.5px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    color: var(--ink-low);
+  }
+
+  /* Small uppercase label used above values and section groups. */
+  .eyebrow {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-low);
+  }
+
+  /* --- Stat cards (the big numbers on the dashboard) --- */
+  .stat-value {
+    font-family: var(--font-mono);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink-hi);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-value--warn {
+    color: var(--amber);
+  }
+  .stat-value--alert {
+    color: var(--orange);
+  }
+  .stat-value--ok {
+    color: var(--green);
+  }
+
+  /* --- Tables --- */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  .data-table thead th {
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-low);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .data-table tbody td {
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-mid);
+    vertical-align: middle;
+  }
+  .data-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .data-table tbody tr:hover {
+    background-color: rgba(111, 214, 214, 0.035);
+  }
+  .data-table .cell-strong {
+    color: var(--ink-hi);
+    font-weight: 500;
+  }
+
+  /* Wrapper that lets wide tables scroll sideways on small screens
+     instead of breaking the page layout. */
+  .table-scroll {
+    overflow-x: auto;
+    margin: 0 -20px -18px;
+    padding: 0 20px 4px;
+  }
+
+  /* --- Status badges --- */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border: 1px solid transparent;
+    border-radius: 20px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .badge--ok {
+    background-color: rgba(79, 201, 138, 0.12);
+    border-color: rgba(79, 201, 138, 0.32);
+    color: var(--green);
+  }
+  .badge--info {
+    background-color: rgba(111, 214, 214, 0.12);
+    border-color: rgba(111, 214, 214, 0.32);
+    color: var(--ice);
+  }
+  .badge--blue {
+    background-color: rgba(90, 169, 255, 0.12);
+    border-color: rgba(90, 169, 255, 0.32);
+    color: var(--blue);
+  }
+  .badge--warn {
+    background-color: rgba(232, 184, 75, 0.12);
+    border-color: rgba(232, 184, 75, 0.32);
+    color: var(--amber);
+  }
+  .badge--alert {
+    background-color: rgba(255, 106, 61, 0.14);
+    border-color: rgba(255, 106, 61, 0.36);
+    color: var(--orange);
+  }
+  .badge--critical {
+    background-color: rgba(255, 90, 90, 0.16);
+    border-color: rgba(255, 90, 90, 0.42);
+    color: var(--red);
+  }
+  .badge--violet {
+    background-color: rgba(169, 139, 255, 0.13);
+    border-color: rgba(169, 139, 255, 0.34);
+    color: var(--violet);
+  }
+  .badge--muted {
+    background-color: rgba(165, 189, 199, 0.1);
+    border-color: rgba(165, 189, 199, 0.22);
+    color: var(--ink-mid);
+  }
+
+  /* --- Status dots --- */
+  .dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot--ok {
+    background-color: var(--green);
+    box-shadow: 0 0 6px var(--green);
+  }
+  .dot--warn {
+    background-color: var(--amber);
+    box-shadow: 0 0 6px var(--amber);
+  }
+  .dot--alert {
+    background-color: var(--orange);
+    box-shadow: 0 0 6px var(--orange);
+  }
+  .dot--info {
+    background-color: var(--ice);
+    box-shadow: 0 0 6px var(--ice);
+  }
+  .dot--muted {
+    background-color: var(--ink-low);
+  }
+
+  /* --- Buttons --- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 15px;
+    border: 1px solid var(--ice-dim);
+    border-radius: var(--radius);
+    background-color: rgba(111, 214, 214, 0.08);
+    color: var(--ice);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition:
+      background-color 0.14s ease,
+      border-color 0.14s ease,
+      opacity 0.14s ease;
+  }
+  .btn:hover:not(:disabled) {
+    background-color: rgba(111, 214, 214, 0.18);
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .btn--alert {
+    border-color: var(--orange);
+    background-color: rgba(255, 106, 61, 0.12);
+    color: var(--orange);
+  }
+  .btn--alert:hover:not(:disabled) {
+    background-color: rgba(255, 106, 61, 0.24);
+  }
+
+  .btn--ghost {
+    border-color: var(--line);
+    background-color: transparent;
+    color: var(--ink-mid);
+  }
+  .btn--ghost:hover:not(:disabled) {
+    border-color: var(--ink-low);
+    color: var(--ink-hi);
+    background-color: var(--navy-850);
+  }
+
+  .btn--sm {
+    padding: 5px 10px;
+    font-size: 11.5px;
+  }
+
+  /* --- Form fields --- */
+  .field-label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ink-low);
+  }
+
+  .input {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background-color: var(--navy-800);
+    color: var(--ink-hi);
+    font-family: var(--font-body);
+    font-size: 13px;
+    transition: border-color 0.14s ease;
+  }
+  .input:focus {
+    border-color: var(--ice-dim);
+    outline: none;
+  }
+  .input::placeholder {
+    color: var(--ink-low);
+  }
+  textarea.input {
+    min-height: 68px;
+    resize: vertical;
+  }
+
+  /* Small inline <select> used inside table rows to change a status. */
+  .select-inline {
+    padding: 4px 7px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background-color: var(--navy-800);
+    color: var(--ink-hi);
+    font-family: var(--font-body);
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .select-inline:focus {
+    border-color: var(--ice-dim);
+    outline: none;
+  }
+
+  /* --- Empty / loading / error states --- */
+  .state-block {
+    padding: 36px 20px;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    text-align: center;
+    color: var(--ink-low);
+    font-size: 13px;
+  }
+  .state-block strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--ink-mid);
+    font-size: 14px;
+  }
+
+  /* --- Utility text classes --- */
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .text-hi {
+    color: var(--ink-hi);
+  }
+  .text-mid {
+    color: var(--ink-mid);
+  }
+  .text-low {
+    color: var(--ink-low);
+  }
+}
+
+/* ---------- 4. ANIMATION ----------
+   Deliberately minimal. A pulse for live alerts and a fade for
+   mounting content. Nothing decorative.
+*/
+@keyframes pulse-alert {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.pulse {
+  animation: pulse-alert 1.9s ease-in-out infinite;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-up {
+  animation: fade-up 0.22s ease-out;
+}
+
+/* Respect users who ask their operating system to reduce motion. */
+@media (prefers-reduced-motion: reduce) {
+  .pulse,
+  .fade-up {
+    animation: none;
+  }
+}
