@@ -247,6 +247,12 @@
     font-weight: 500;
   }
 
+  /* IDs, dates and coordinates must never break across two lines —
+     "EXP-001" split over two rows looks like a bug. */
+  .data-table td.mono {
+    white-space: nowrap;
+  }
+
   /* Wrapper that lets wide tables scroll sideways on small screens
      instead of breaking the page layout. */
   .table-scroll {
