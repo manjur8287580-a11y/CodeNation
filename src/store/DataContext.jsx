@@ -160,20 +160,36 @@ export function DataProvider({ children }) {
 
   const updatePerson = useCallback(
     (id, changes) => {
+      /* MOVING SOMEONE ALSO MOVES THEIR COORDINATES.
+         If a page changes location_id without giving explicit lat/lng, we
+         copy the coordinates from that location. That is why re-assigning
+         someone on the Personnel page also moves their marker on the map —
+         one edit, two modules updated, no extra code on either page. */
+      let patch = changes
+      if (changes.location_id && changes.latitude == null) {
+        const place = locations.find((l) => l.id === changes.location_id)
+        if (place) {
+          patch = { ...changes, latitude: place.latitude, longitude: place.longitude }
+        }
+      }
+
       setPersonnel((prev) =>
         prev.map((p) =>
-          p.id === id ? { ...p, ...changes, last_updated: new Date().toISOString() } : p
+          p.id === id ? { ...p, ...patch, last_updated: new Date().toISOString() } : p
         )
       )
+
+      const person = personnel.find((p) => p.id === id)
+      const who = `${id}${person ? ` ${person.name}` : ''}`
+
       if (changes.status) {
-        const person = personnel.find((p) => p.id === id)
-        logActivity(
-          'PERSONNEL',
-          `${id}${person ? ` ${person.name}` : ''} set to ${changes.status.replace('_', ' ')}`
-        )
+        logActivity('PERSONNEL', `${who} set to ${changes.status.replace('_', ' ')}`)
+      } else if (changes.location_id) {
+        const place = locations.find((l) => l.id === changes.location_id)
+        logActivity('PERSONNEL', `${who} moved to ${place ? place.name : changes.location_id}`)
       }
     },
-    [personnel, logActivity]
+    [personnel, locations, logActivity]
   )
 
   /* --- CARGO --- */
