@@ -635,7 +635,157 @@
   }
 }
 
-/* ---------- 4. ANIMATION ----------
+/* ============================================================
+   4. MAP (Leaflet)
+   ============================================================
+   Leaflet ships its own stylesheet, which is imported at the top of
+   src/pages/MapView.jsx. That stylesheet is built for a LIGHT page, so
+   everything below re-skins it to match this dark console.
+
+   Nothing here changes how the map WORKS — it is purely appearance.
+   If you ever want the plain default Leaflet look back, delete this
+   whole section.
+*/
+
+/* The bordered box the map sits inside. */
+.map-shell {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* Leaflet's default background is light grey (#ddd), which flashes
+   brightly before the tiles arrive. Navy matches the app instead. */
+.leaflet-container {
+  background: var(--navy-950);
+  font-family: var(--font-body);
+}
+
+/* THE DARK BASEMAP.
+   We use the standard OpenStreetMap tiles (free, no API key, and the
+   attribution stays on the map). OSM tiles are designed to be bright,
+   so this filter desaturates and darkens them. The result reads as a
+   night-operations chart, and the orange/teal markers stand out
+   against it instead of fighting green fields and beige roads.
+
+   TO TUNE IT: `brightness` is the dial you want. Lower = darker map.
+   Delete the whole rule to get plain OpenStreetMap colours back.
+
+   This class is attached to the tile layer in MapView.jsx via
+   L.tileLayer(url, { className: 'map-tiles' }). */
+.map-tiles {
+  filter: grayscale(0.92) brightness(0.36) contrast(1.3);
+}
+
+/* Zoom buttons. */
+.leaflet-control-zoom a {
+  background: var(--navy-850);
+  border-color: var(--line) !important;
+  color: var(--ink-mid);
+}
+.leaflet-control-zoom a:hover {
+  background: var(--navy-800);
+  color: var(--ink-hi);
+}
+
+/* OSM requires attribution to stay visible. We keep it — just quiet. */
+.leaflet-control-attribution {
+  background: rgba(8, 17, 26, 0.82) !important;
+  color: var(--ink-low) !important;
+  font-size: 9.5px !important;
+}
+.leaflet-control-attribution a {
+  color: var(--ink-mid) !important;
+}
+
+/* Hover labels on markers. */
+.leaflet-tooltip {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--navy-850);
+  color: var(--ink-hi);
+  box-shadow: none;
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.leaflet-tooltip::before {
+  display: none;
+}
+
+/* --- OUR OWN MARKERS ---
+   Leaflet's default marker is a blue teardrop loaded from an image file,
+   which bundlers famously break. We sidestep that entirely by drawing
+   markers as small HTML elements (L.divIcon), styled here. Bonus: they
+   use our own palette and three different shapes, so a judge can tell
+   a station from a person from an incident at a glance. */
+.map-pin {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  transition: transform 0.12s ease;
+}
+.map-pin:hover {
+  transform: scale(1.25);
+  z-index: 1000;
+}
+
+/* Sites — a square. Stations, camps, vessels, depots, ports, HQ. */
+.map-pin--site {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--navy-950);
+  border-radius: 2px;
+}
+
+/* People — a round dot, smaller than a site. */
+.map-pin--person {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--navy-950);
+  border-radius: 50%;
+}
+
+/* Incidents — a ring that pulses, so an open emergency is impossible
+   to miss on a moving map. (pulse-alert is defined in the animation
+   section further down; @keyframes work regardless of order.) */
+.map-pin--incident {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--red);
+  border-radius: 50%;
+  background: rgba(255, 90, 90, 0.28);
+  animation: pulse-alert 1.9s ease-in-out infinite;
+}
+.map-pin--incident::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+}
+
+/* Whatever is currently open in the detail panel gets a halo, so you
+   never lose track of which marker you clicked. */
+.map-pin--selected {
+  box-shadow:
+    0 0 0 3px rgba(111, 214, 214, 0.85),
+    0 0 12px rgba(111, 214, 214, 0.6);
+  transform: scale(1.2);
+}
+
+/* A small legend row: the swatch mirrors the marker shape. */
+.legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--navy-950);
+}
+
+/* ---------- 5. ANIMATION ----------
    Deliberately minimal. A pulse for live alerts and a fade for
    mounting content. Nothing decorative.
 */
@@ -669,7 +819,8 @@
 /* Respect users who ask their operating system to reduce motion. */
 @media (prefers-reduced-motion: reduce) {
   .pulse,
-  .fade-up {
+  .fade-up,
+  .map-pin--incident {
     animation: none;
   }
 }
