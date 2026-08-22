@@ -468,6 +468,141 @@
   .text-low {
     color: var(--ink-low);
   }
+
+  /* --- Sidebar navigation ---
+     One button per module. The active one gets a teal left edge, which is
+     how you always know where you are in the console. */
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px 8px 14px;
+    border: 0;
+    border-left: 2px solid transparent;
+    background: transparent;
+    color: var(--ink-mid);
+    font-family: var(--font-body);
+    font-size: 13px;
+    text-align: left;
+    transition: background-color 0.14s ease, color 0.14s ease;
+  }
+  .nav-item:hover {
+    background: var(--navy-850);
+    color: var(--ink-hi);
+  }
+  .nav-item--active {
+    border-left-color: var(--ice);
+    background: var(--navy-800);
+    color: var(--ink-hi);
+    font-weight: 500;
+  }
+
+  .nav-group-label {
+    padding: 0 14px;
+    margin: 16px 0 6px;
+    color: var(--ink-low);
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* A small count pill on a nav item, e.g. 3 open incidents. */
+  .nav-count {
+    margin-left: auto;
+    min-width: 18px;
+    padding: 1px 5px;
+    border-radius: 9px;
+    background: var(--navy-700);
+    color: var(--ink-mid);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-align: center;
+  }
+  .nav-count--alert {
+    background: rgba(255, 90, 90, 0.16);
+    color: var(--red);
+  }
+  .nav-count--warn {
+    background: rgba(232, 184, 75, 0.16);
+    color: var(--amber);
+  }
+
+  /* --- Page header strip above the content --- */
+  .page-title {
+    margin: 0;
+    color: var(--ink-hi);
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .page-blurb {
+    margin: 2px 0 0;
+    color: var(--ink-low);
+    font-size: 12.5px;
+  }
+
+  /* --- Thin progress bar, used for expedition completion --- */
+  .progress {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--navy-700);
+    overflow: hidden;
+  }
+  .progress > span {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--ice);
+  }
+  .progress--warn > span {
+    background: var(--amber);
+  }
+  .progress--muted > span {
+    background: var(--ink-low);
+  }
+
+  /* --- Critical alert banner (Emergency + Dashboard) --- */
+  .alert-strip {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 90, 90, 0.4);
+    border-left: 3px solid var(--red);
+    border-radius: var(--radius);
+    background: rgba(255, 90, 90, 0.07);
+  }
+  .alert-strip--warn {
+    border-color: rgba(232, 184, 75, 0.4);
+    border-left-color: var(--amber);
+    background: rgba(232, 184, 75, 0.07);
+  }
+
+  /* --- A labelled key/value row, used in detail panels --- */
+  .kv {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 12.5px;
+  }
+  .kv:last-child {
+    border-bottom: 0;
+  }
+  .kv > dt {
+    color: var(--ink-low);
+  }
+  .kv > dd {
+    margin: 0;
+    color: var(--ink-hi);
+    text-align: right;
+  }
 }
 
 /* ---------- 4. ANIMATION ----------
