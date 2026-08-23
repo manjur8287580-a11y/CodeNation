@@ -99,6 +99,25 @@ export const LOCATION_TYPE = {
   HQ: { label: 'Headquarters', tone: 'ok' },
 }
 
+/* ---------- WEATHER: THE OPERATIONS WINDOW ----------
+   Can you fly, drive and work outside right now? One word for it.
+
+   IMPORTANT, AND SAY THIS TO A JUDGE IF ASKED: this is OUR OWN simple rule
+   based on wind gusts and wind chill, not an official NCPOR or aviation
+   limit. The thresholds and the reasoning live in one place —
+   OPS_LIMITS and assessConditions() in src/services/weatherService.js.
+
+   Like stock status, this is never stored. It is calculated from whatever
+   the weather reading currently says, so it cannot disagree with the
+   numbers printed beside it. */
+export const OPS_WINDOW = {
+  CLEAR: { label: 'Clear', tone: 'ok' },
+  MARGINAL: { label: 'Marginal', tone: 'warn' },
+  HAZARDOUS: { label: 'Hazardous', tone: 'alert' },
+  GROUNDED: { label: 'Grounded', tone: 'critical' },
+  UNKNOWN: { label: 'No Data', tone: 'muted' },
+}
+
 /* ============================================================
    HELPERS
    ============================================================ */

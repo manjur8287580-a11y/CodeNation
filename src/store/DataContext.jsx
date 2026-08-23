@@ -31,7 +31,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 import demoData from '../data/demoData'
-import { isLowStock, stockStatus } from '../lib/statuses'
+import { EMERGENCY_TYPE, SEVERITY, isLowStock, statusLabel, stockStatus } from '../lib/statuses'
 import { nextId } from '../lib/format'
 
 /* The context object itself. Components never touch this directly —
@@ -307,9 +307,13 @@ export function DataProvider({ children }) {
         )
       }
 
+      /* statusLabel() rather than the raw key, so the line reads "Weather
+         Hazard" and not "WEATHER". Every type used to be a single word, so
+         printing the key looked fine until the Weather module started
+         filing incidents of type WEATHER — whose label is two words. */
       logActivity(
         'EMERGENCY',
-        `${record.id} declared — ${record.type.replace('_', ' ')}, ${record.location} (${record.severity})`
+        `${record.id} declared — ${statusLabel(EMERGENCY_TYPE, record.type)}, ${record.location} (${statusLabel(SEVERITY, record.severity)})`
       )
       return record
     },

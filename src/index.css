@@ -785,6 +785,19 @@
   border: 1.5px solid var(--navy-950);
 }
 
+/* ---------- 4b. WEATHER ----------
+   One box per day in the four-day outlook on each station card. Sunk
+   slightly darker than the card it sits on so the strip reads as one
+   group of four rather than four floating columns of numbers.
+*/
+.forecast-day {
+  background: var(--navy-950);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  padding: 6px 4px;
+  text-align: center;
+}
+
 /* ---------- 5. ANIMATION ----------
    Deliberately minimal. A pulse for live alerts and a fade for
    mounting content. Nothing decorative.
