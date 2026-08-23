@@ -149,3 +149,44 @@ export function isLowStock(item) {
 export function optionsFrom(map) {
   return Object.entries(map).map(([value, meta]) => ({ value, label: meta.label }))
 }
+
+/* ============================================================
+   TONE -> COLOUR, FOR CHARTS ONLY
+   ============================================================
+   Everywhere else in the app, a tone becomes a colour through CSS:
+   `tone: 'alert'` renders <span class="badge badge--alert">, and
+   src/index.css decides what orange means.
+
+   Charts cannot do that. Recharts draws real SVG shapes, and an SVG
+   `fill` cannot read a CSS variable — fill="var(--orange)" simply does
+   not paint. So a chart needs the colour written out.
+
+   These eight values are THE SAME COLOURS as the variables in
+   src/index.css, copied here as plain text. The comment on each line
+   names the variable it mirrors. If you ever change a colour in
+   index.css, change it here too, otherwise a bar and the badge next to
+   it will disagree — which on this app would be a real bug, because the
+   whole point is that the charts and the badges are the same facts.
+   ============================================================ */
+export const TONE_COLOUR = {
+  ok: '#4fc98a' /* --green   */,
+  info: '#6fd6d6' /* --ice     */,
+  blue: '#5aa9ff' /* --blue    */,
+  warn: '#e8b84b' /* --amber   */,
+  alert: '#ff6a3d' /* --orange  */,
+  critical: '#ff5a5a' /* --red     */,
+  violet: '#a98bff' /* --violet  */,
+  muted: '#a5bdc7' /* --ink-mid */,
+}
+
+/**
+ * The chart colour for one status key.
+ *   statusColour(CARGO_STATUS, 'DELAYED')   -> '#ff6a3d'
+ *   statusColour(STOCK_STATUS, 'AVAILABLE') -> '#4fc98a'
+ *
+ * Because it reads the very same tone the badge reads, a bar is always
+ * the colour of its badge. Nothing is chosen twice.
+ */
+export function statusColour(map, key) {
+  return TONE_COLOUR[statusTone(map, key)] || TONE_COLOUR.muted
+}

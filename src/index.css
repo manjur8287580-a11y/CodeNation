@@ -824,3 +824,82 @@
     animation: none;
   }
 }
+
+/* ============================================================
+   6. CHARTS (Recharts)
+   ============================================================
+   Recharts draws SVG, and SVG shapes are coloured by attributes rather
+   than by our CSS classes — so the bars and the axis text get their
+   colours from JavaScript instead (see TONE_COLOUR in
+   src/lib/statuses.js and the constants at the top of
+   src/components/HorizontalBarChart.jsx).
+
+   What is left for CSS is the furniture around the drawing: the hover
+   box, the fonts, and switching off the focus ring Recharts puts on its
+   own wrapper. Kept outside @layer components because a couple of these
+   rules have to beat Recharts' own inline defaults.
+   ============================================================ */
+
+.chart-wrap {
+  /* Recharts measures its container to work out its width. If the
+     container can shrink below the chart, the two argue with each other
+     and the chart wobbles on resize; min-width: 0 settles it. */
+  min-width: 0;
+  width: 100%;
+}
+
+/* Axis text. Recharts sets the colour per element, so we only set type
+   here — this keeps the numbers in the same condensed face as the rest of
+   the console instead of falling back to a browser default. */
+.recharts-text {
+  font-family: var(--font-body);
+}
+.recharts-cartesian-axis-tick-value {
+  letter-spacing: 0.01em;
+}
+
+/* The figures printed at the end of each bar can land on top of the dashed
+   minimum line on the inventory chart — "9/15" with a line through the 1
+   reads as a number crossed out. paint-order: stroke paints a thick outline
+   in the panel's own colour FIRST and the letters on top of it, so every
+   figure carries a little clear space around it. Invisible everywhere else;
+   the figures are always drawn beside a bar, never over one. */
+.recharts-label-list text {
+  paint-order: stroke;
+  stroke: var(--navy-900);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+/* Recharts wraps the chart in a focusable div and some browsers draw a
+   ring round it on click. There is nothing to operate with a keyboard
+   inside the chart, so the ring is just noise. */
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-surface:focus {
+  outline: none;
+}
+
+/* THE HOVER BOX.
+   Same surface, border and radius as a card, so it looks like it belongs
+   to this console rather than to a charting library. */
+.chart-tip {
+  min-width: 120px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--navy-900);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+.chart-tip__label {
+  color: var(--ink-hi);
+  font-size: 12px;
+  line-height: 1.3;
+}
+.chart-tip__value {
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+

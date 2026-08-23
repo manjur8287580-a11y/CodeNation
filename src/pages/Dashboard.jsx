@@ -16,6 +16,7 @@ import { AlertTriangle, Boxes, Compass, Package, Radio, Siren, Users } from 'luc
 
 import Badge from '../components/Badge'
 import DataTable from '../components/DataTable'
+import HorizontalBarChart from '../components/HorizontalBarChart'
 import Panel from '../components/Panel'
 import StatCard from '../components/StatCard'
 import StateBlock from '../components/StateBlock'
@@ -28,7 +29,10 @@ import {
   EXPEDITION_STATUS,
   PRIORITY,
   SEVERITY,
+  STOCK_STATUS,
+  statusColour,
   statusLabel,
+  stockStatus,
 } from '../lib/statuses'
 
 /* Which colour the activity-log dot gets, per kind of event. */
@@ -42,7 +46,8 @@ const ACTIVITY_TONE = {
 }
 
 export default function Dashboard({ goTo }) {
-  const { stats, expeditions, cargo, emergencies, activityLog, loading, error } = useData()
+  const { stats, expeditions, cargo, inventory, emergencies, activityLog, loading, error } =
+    useData()
 
   const activeExpeditions = expeditions.filter((e) => e.status === 'ACTIVE')
 
@@ -53,6 +58,34 @@ export default function Dashboard({ goTo }) {
     .slice(0, 5)
 
   const openIncidents = emergencies.filter((e) => e.status !== 'RESOLVED')
+
+  /* ---------- THE TWO CHARTS (master prompt section 7) ----------
+     Counted from the same arrays the cards above count, on every render.
+
+     One walk over the STATUS MAP rather than over the records, so the bars
+     always appear in the same order and an empty status keeps its row.
+     "0 delayed" is worth seeing, and a bar that disappears when it empties
+     makes the whole chart jump about.
+
+     The cargo chart is deliberately the SAME chart as the one on the Cargo
+     page. That repetition is the demo, not an oversight: change a
+     consignment's status over there, come back here, and this bar has
+     already moved — because neither page tells the other anything. */
+  function countInto(map, rows, valueOf, noun) {
+    return Object.keys(map).map((key) => {
+      const n = rows.filter((row) => valueOf(row) === key).length
+      return {
+        label: statusLabel(map, key),
+        value: n,
+        colour: statusColour(map, key),
+        note: n > 0 ? String(n) : '',
+        tip: `${n} ${n === 1 ? noun : `${noun}s`}`,
+      }
+    })
+  }
+
+  const cargoPipeline = countInto(CARGO_STATUS, cargo, (c) => c.status, 'consignment')
+  const stockHealth = countInto(STOCK_STATUS, inventory, (i) => stockStatus(i), 'item')
 
   return (
     <div className="space-y-5">
@@ -246,7 +279,65 @@ export default function Dashboard({ goTo }) {
       </div>
 
       {/* ============================================================
-          4. CARGO NEEDING ATTENTION + LOW STOCK + ACTIVITY
+          4. THE TWO CHARTS
+          The same facts as the cards at the top, drawn instead of
+          counted. A judge reads the shape of the operation here without
+          reading a single number.
+          ============================================================ */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel
+          eyebrow="Logistics"
+          title="Cargo Pipeline"
+          subtitle="Every consignment by where it has reached"
+          action={
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => goTo('cargo')}>
+              Cargo
+            </button>
+          }
+        >
+          {loading ? (
+            <StateBlock kind="loading" />
+          ) : (
+            <HorizontalBarChart
+              data={cargoPipeline}
+              labelWidth={92}
+              noteWidth={38}
+              rowHeight={30}
+              emptyMessage="No consignments logged yet."
+            />
+          )}
+        </Panel>
+
+        <Panel
+          eyebrow="Logistics"
+          title="Stock Health"
+          subtitle="Recalculated from quantity against minimum, never stored"
+          action={
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={() => goTo('inventory')}
+            >
+              Inventory
+            </button>
+          }
+        >
+          {loading ? (
+            <StateBlock kind="loading" />
+          ) : (
+            <HorizontalBarChart
+              data={stockHealth}
+              labelWidth={92}
+              noteWidth={38}
+              rowHeight={30}
+              emptyMessage="No stock items logged yet."
+            />
+          )}
+        </Panel>
+      </div>
+
+      {/* ============================================================
+          5. CARGO NEEDING ATTENTION + LOW STOCK + ACTIVITY
           ============================================================ */}
       <div className="grid gap-4 xl:grid-cols-3">
         <Panel
@@ -361,7 +452,7 @@ export default function Dashboard({ goTo }) {
       </div>
 
       {/* ============================================================
-          5. AN HONEST FOOTER
+          6. AN HONEST FOOTER
           Master prompt section 21. We say plainly what this data is.
           Being upfront about it reads as competence, not weakness.
           ============================================================ */}

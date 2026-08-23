@@ -32,6 +32,7 @@ import { Boxes, Filter, Minus, Package, PackageCheck, Plus, RotateCcw, X } from 
 
 import Badge from '../components/Badge'
 import DataTable from '../components/DataTable'
+import HorizontalBarChart from '../components/HorizontalBarChart'
 import Panel from '../components/Panel'
 import StateBlock from '../components/StateBlock'
 import { useData } from '../store/DataContext'
@@ -41,6 +42,8 @@ import {
   STOCK_STATUS,
   isLowStock,
   optionsFrom,
+  statusColour,
+  statusLabel,
   stockStatus,
 } from '../lib/statuses'
 
@@ -157,6 +160,47 @@ export default function Inventory({ goTo }) {
   }
   const byLocation = groupBy('location')
   const byCategory = groupBy('category')
+
+  /* ---------- THE STOCK CHART (master prompt section 7) ----------
+     One bar per item, drawn against a FULL HOLDING, which we define as
+     twice the minimum. That is the same rule as the little bars in the
+     Stock column of the table, so the chart and the table can never
+     disagree — see stockPercent() at the top of this file.
+
+     Why "twice the minimum" and not "percent of the minimum": an item
+     holding 14,200 litres against a 6,000 litre minimum is 237%, and one
+     bar like that squashes every other bar into the left edge. Against a
+     full holding the scale stops at 100%, everything stays readable, and
+     the dashed line at 50% is exactly the minimum. Left of the line means
+     trouble, and the bar's colour says the same thing again.
+
+     Items with no minimum set are left out rather than quietly drawn at
+     full: "stock against minimum" has no meaning without a minimum. The
+     count of those is shown under the chart so nothing disappears
+     silently. */
+  const noMinimumCount = inventory.filter((i) => !(Number(i.minimum_quantity) > 0)).length
+
+  /* Two stations may stock the same item, so an item name on its own is
+     not guaranteed to be unique — and two bars with the same name would be
+     drawn on top of each other as one. Where a name repeats we add the
+     station to tell them apart. */
+  const nameCounts = inventory.reduce((acc, i) => {
+    acc[i.item_name] = (acc[i.item_name] || 0) + 1
+    return acc
+  }, {})
+
+  const stockChartData = inventory
+    .filter((i) => Number(i.minimum_quantity) > 0)
+    .map((item) => ({
+      label: nameCounts[item.item_name] > 1 ? `${item.item_name} · ${item.location}` : item.item_name,
+      value: Math.round(stockPercent(item)),
+      colour: statusColour(STOCK_STATUS, stockStatus(item)),
+      note: `${formatNumber(item.quantity)}/${formatNumber(item.minimum_quantity)}`,
+      tip: `${formatNumber(item.quantity)} of ${formatNumber(item.minimum_quantity)} ${item.unit} minimum · ${statusLabel(STOCK_STATUS, stockStatus(item))}`,
+    }))
+    /* Worst first, so whatever needs attention is at the top of the
+       chart where the eye lands. */
+    .sort((a, b) => a.value - b.value)
 
   /** Raise an item back to a full holding (twice its minimum). */
   function restock(item) {
@@ -674,6 +718,55 @@ export default function Inventory({ goTo }) {
             },
           ]}
         />
+      </Panel>
+
+      {/* ================= STOCK CHART (master prompt section 7) =================
+          The same three facts as the table above — quantity, minimum,
+          status — drawn instead of listed. Nothing here is a separate
+          copy of the data: press minus in the table and this bar shrinks
+          and changes colour on the very same render. */}
+      <Panel
+        eyebrow="Stock levels"
+        title="Stock Against Minimum"
+        subtitle="Lowest first. A full holding is twice the minimum, so the dashed line is the minimum itself."
+        action={
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => goTo('cargo')}>
+            <Package size={13} /> Incoming cargo
+          </button>
+        }
+      >
+        <HorizontalBarChart
+          data={stockChartData}
+          maxValue={100}
+          unitSuffix="%"
+          reference={50}
+          referenceLabel="Minimum"
+          labelWidth={190}
+          noteWidth={78}
+          emptyTitle="Nothing to chart"
+          emptyMessage="No items with a minimum quantity set."
+        />
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-low">
+          <span className="flex items-center gap-1.5">
+            <i className="legend-swatch" style={{ background: 'var(--green)' }} /> Available
+          </span>
+          <span className="flex items-center gap-1.5">
+            <i className="legend-swatch" style={{ background: 'var(--orange)' }} /> At or below
+            minimum
+          </span>
+          <span className="flex items-center gap-1.5">
+            <i className="legend-swatch" style={{ background: 'var(--red)' }} /> Out of stock
+          </span>
+          <span className="text-mid">
+            Bars stop at a full holding — the figures beside each bar are the real quantities.
+          </span>
+          {noMinimumCount > 0 && (
+            <span className="text-[var(--amber)]">
+              {noMinimumCount} item{noMinimumCount === 1 ? '' : 's'} not charted — no minimum set.
+            </span>
+          )}
+        </div>
       </Panel>
 
       {/* ================= RESTOCK LIST + GROUPED VIEWS ================= */}

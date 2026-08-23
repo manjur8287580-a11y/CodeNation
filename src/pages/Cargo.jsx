@@ -28,11 +28,12 @@ import { AlertTriangle, ChevronRight, Filter, MapPin, Package, Plus, Ship, X } f
 
 import Badge from '../components/Badge'
 import DataTable from '../components/DataTable'
+import HorizontalBarChart from '../components/HorizontalBarChart'
 import Panel from '../components/Panel'
 import StateBlock from '../components/StateBlock'
 import { useData } from '../store/DataContext'
 import { formatNumber, formatQuantity, timeAgo } from '../lib/format'
-import { CARGO_STATUS, PRIORITY, optionsFrom, statusLabel } from '../lib/statuses'
+import { CARGO_STATUS, PRIORITY, optionsFrom, statusColour, statusLabel } from '../lib/statuses'
 
 /* The blank form, kept at module level so "reset the form" is one line
    and so the object is not rebuilt on every render. */
@@ -127,6 +128,34 @@ export default function Cargo({ goTo }) {
       return acc
     }, {})
   ).sort((a, b) => b.kg - a.kg)
+
+  /* ---------- CHART DATA (master prompt section 7) ----------
+     Counted straight off the same `cargo` array the table above reads.
+     Change a row's status in the register and one bar loses a consignment
+     while another gains one, on the same render.
+
+     We walk the STATUS MAP rather than the data, for two reasons: the bars
+     come out in pipeline order (planned -> loaded -> in transit -> arrived
+     -> delayed) instead of whatever order the records happen to be in, and
+     a status with nothing in it keeps its row. A bar that vanishes when it
+     empties makes the chart jump about, and "nothing is delayed" is worth
+     seeing. */
+  function countByStatus(map, field) {
+    return Object.keys(map).map((key) => {
+      const rows = cargo.filter((c) => c[field] === key)
+      const kg = rows.reduce((sum, c) => sum + (Number(c.weight_kg) || 0), 0)
+      return {
+        label: statusLabel(map, key),
+        value: rows.length,
+        colour: statusColour(map, key),
+        note: rows.length > 0 ? String(rows.length) : '',
+        tip: `${rows.length} consignment${rows.length === 1 ? '' : 's'} · ${(kg / 1000).toFixed(1)} tonnes`,
+      }
+    })
+  }
+
+  const chartByStatus = countByStatus(CARGO_STATUS, 'status')
+  const chartByPriority = countByStatus(PRIORITY, 'priority')
 
   /* ---------- THE FORM ---------- */
   const setField = (event) => {
@@ -636,6 +665,40 @@ export default function Cargo({ goTo }) {
           ]}
         />
       </Panel>
+
+      {/* ================= PIPELINE CHARTS (master prompt section 7) =================
+          Two views of the same register: where consignments are, and how
+          urgent they are. Both are counted on every render, so changing a
+          status in the table above moves a bar here immediately. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel
+          eyebrow="Pipeline"
+          title="Consignments by Status"
+          subtitle="Counted from the register on every change · hover for tonnage"
+        >
+          <HorizontalBarChart
+            data={chartByStatus}
+            labelWidth={92}
+            noteWidth={38}
+            rowHeight={30}
+            emptyMessage="No consignments logged yet."
+          />
+        </Panel>
+
+        <Panel
+          eyebrow="Pipeline"
+          title="Consignments by Priority"
+          subtitle="How much of the manifest is urgent"
+        >
+          <HorizontalBarChart
+            data={chartByPriority}
+            labelWidth={92}
+            noteWidth={38}
+            rowHeight={30}
+            emptyMessage="No consignments logged yet."
+          />
+        </Panel>
+      </div>
 
       {/* ================= DETAIL + WATCHLIST + LOAD BY DESTINATION ================= */}
       <div className="grid gap-4 xl:grid-cols-3">
