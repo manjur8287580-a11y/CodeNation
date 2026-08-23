@@ -696,6 +696,34 @@
     line-height: 1.5;
     color: var(--ink-mid);
   }
+
+  /* --- Database problem notice (shown by src/App.jsx) ---
+     Same shape as the read-only strip on purpose — one line across the top of
+     every page — but amber rather than green, because this one is a problem
+     and that one is just a fact. Amber and not red: nothing is broken and no
+     data has vanished from the screen, the database just did not keep up.
+     Red is saved for an actual emergency, which in this app means an
+     emergency. */
+  .sync-strip {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 8px 16px;
+    border-bottom: 1px solid rgba(232, 168, 61, 0.32);
+    background: rgba(232, 168, 61, 0.07);
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--ink-mid);
+  }
+  .sync-strip__action {
+    flex-shrink: 0;
+    border-bottom: 1px solid currentColor;
+    color: var(--ink-hi);
+    font-size: 11px;
+  }
+  .sync-strip__action:hover {
+    color: var(--amber);
+  }
 }
 
 /* ============================================================

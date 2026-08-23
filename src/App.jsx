@@ -23,12 +23,13 @@
  */
 
 import { useState } from 'react'
-import { Eye } from 'lucide-react'
+import { CloudOff, Eye } from 'lucide-react'
 import Sidebar from './components/Sidebar'
 import TopBar from './components/TopBar'
 import ErrorBoundary from './components/ErrorBoundary'
 import { findNavItem } from './lib/navigation'
 import { useAuth } from './store/AuthContext'
+import { useData } from './store/DataContext'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -43,6 +44,11 @@ import Emergency from './pages/Emergency'
 export default function App() {
   /* Who is signed in, and what they may change. */
   const { user, canManage } = useAuth()
+
+  /* Whether the database is keeping up. `dbNotice` is null unless a database
+     is configured AND something went wrong with it, so on demo data — the
+     default — it is always null and the strip below never renders. */
+  const { dbNotice, dismissDbNotice, reload } = useData()
 
   /* Which module is on screen. */
   const [view, setView] = useState('dashboard')
@@ -133,6 +139,53 @@ export default function App() {
               where they only act, dimmed where they also show a value. You can still report an
               emergency — raising the alarm is never blocked.
             </span>
+          </div>
+        )}
+
+        {/* ---------- DATABASE NOTICE ----------
+            One strip, two problems, and it knows which one happened:
+
+              kind 'load' — the five tables could not be read, so the console
+                            is running on its built-in demo data. Everything
+                            works; nothing you change will be kept.
+              kind 'save' — the tables were read fine, but a background write
+                            failed. The change you just made is still on
+                            screen and still correct in this tab, and it will
+                            be gone after a refresh.
+
+            NEITHER CAN APPEAR WITH NO DATABASE CONFIGURED, which is the
+            default state of this project. Nothing is attempted, so nothing
+            can fail, so this strip stays away during a demo on demo data.
+
+            Why the 'save' case leaves the change on screen: the two
+            alternatives are both dishonest. Doing nothing lets somebody walk
+            away believing a record was filed. Silently undoing it makes a
+            working button look broken. So the change stays and this says
+            plainly what did not happen. Retry re-reads all five tables, which
+            is the only route back to a state we can vouch for. */}
+        {dbNotice && (
+          <div className="sync-strip">
+            <CloudOff size={14} strokeWidth={2} className="mt-0.5 shrink-0 text-[var(--amber)]" />
+            <span className="flex-1">
+              {dbNotice.kind === 'save' ? (
+                <>
+                  <span className="text-hi">Not saved to the database.</span> {dbNotice.message} The
+                  change is still on screen and still correct here, but it will be gone if you
+                  refresh.
+                </>
+              ) : (
+                <>
+                  <span className="text-hi">Running on demo data.</span> {dbNotice.message} Every
+                  module works normally; changes just will not survive a refresh.
+                </>
+              )}
+            </span>
+            <button type="button" onClick={reload} className="sync-strip__action">
+              Retry
+            </button>
+            <button type="button" onClick={dismissDbNotice} className="sync-strip__action">
+              Dismiss
+            </button>
           </div>
         )}
 

@@ -27,12 +27,59 @@
  * component without passing it down by hand through every level. We are
  * using it instead of a library like Redux because it needs no extra
  * install and is far less to explain to a judge.
+ *
+ * ============================================================
+ * WHERE THE DATABASE FITS (added in the Supabase phase)
+ * ============================================================
+ * Everything above still describes how this file works. Supabase was added
+ * UNDERNEATH it without changing any of it, and the arrangement is worth
+ * understanding because it is what makes the demo safe:
+ *
+ *   1. ON STARTUP, if and only if .env has keys, we try to read the five
+ *      tables. If that works, the arrays start out full of database rows
+ *      instead of demo rows. If ANYTHING goes wrong — no keys, no network,
+ *      no tables, no policies — we keep the demo data and say so in one
+ *      sentence. There is no state in which the console has nothing to show.
+ *
+ *   2. ON EVERY CHANGE, the screen updates FIRST and the database is told
+ *      afterwards, in the background, without anybody waiting for it. So
+ *      pressing a button feels instant whether the database is fast, slow or
+ *      not there at all — and the connected behaviour in section 12 of the
+ *      brief happens at exactly the same speed either way.
+ *
+ *   3. IF A BACKGROUND WRITE FAILS, the change stays on screen and a strip
+ *      appears saying it was not saved. That is the honest thing to show:
+ *      the change is real in this tab and really will be lost on refresh.
+ *      Silently rolling the screen back would be worse — it would look like
+ *      the button did not work.
+ *
+ * THE PRICE OF DOING IT THIS WAY, said plainly: the browser is the thing you
+ * are looking at, and the database is a copy that catches up a moment later.
+ * With one operator that is invisible. With two people editing the same row
+ * at once, the last write wins and neither is told. Fixing that properly
+ * means realtime subscriptions and conflict handling, which is a different
+ * and much larger project than this prototype.
  */
 
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 import demoData from '../data/demoData'
 import { EMERGENCY_STATUS, EMERGENCY_TYPE, SEVERITY, isLowStock, statusLabel, stockStatus } from '../lib/statuses'
 import { nextId } from '../lib/format'
+import { isSupabaseConfigured, supabaseConfig } from '../lib/supabase'
+import { describeDbError } from '../services/db'
+
+/* THE FIVE TABLE SERVICES, imported as whole modules.
+   `import * as expeditionDb` instead of `import { updateExpedition }` for one
+   very practical reason: this file already has functions called
+   updateExpedition, updatePerson, updateCargo and so on, and the services use
+   the same names. Importing them plainly would collide. This way every
+   database call is spelled `expeditionDb.updateExpedition(...)`, which also
+   makes it obvious at a glance which lines talk to the network. */
+import * as expeditionDb from '../services/expeditionService'
+import * as personnelDb from '../services/personnelService'
+import * as cargoDb from '../services/cargoService'
+import * as inventoryDb from '../services/inventoryService'
+import * as emergencyDb from '../services/emergencyService'
 
 /* The context object itself. Components never touch this directly —
    they call the useData() hook at the bottom of this file. */
@@ -64,12 +111,177 @@ export function DataProvider({ children }) {
   const [error, setError] = useState(null)
   const [source, setSource] = useState(DATA_SOURCE.DEMO)
 
-  /* Pretend to "load" briefly on first mount. This is not padding — it
-     means the loading spinners are real code paths that we have actually
-     seen work, so when Supabase is plugged in later nothing is new. */
+  /* `dbNotice` is a DIFFERENT thing from `error`, and keeping them apart is
+     not fussiness — it is a bug that was nearly written.
+
+     `error` is handed to the DataTable on six pages, and a DataTable given an
+     error shows the error INSTEAD of its rows. That is right when there is
+     nothing to show. But a database that fails to load leaves us showing the
+     demo data, which means every one of those six tables has perfectly good
+     rows in it. Putting "could not reach the database" into `error` would have
+     replaced six full tables with six error boxes to report a problem that
+     did not empty a single one of them.
+
+     So the database's own complaints live here instead, and are shown as one
+     line across the top of the page by src/App.jsx. Two shapes:
+       { kind: 'load', message }  — could not READ, so you are seeing demo data
+       { kind: 'save', message }  — could not WRITE, so what you changed is on
+                                    screen but not in the database
+     Two genuinely different problems, told apart, because a single message
+     that covered both would be wrong half the time it appeared. */
+  const [dbNotice, setDbNotice] = useState(null)
+  const dismissDbNotice = useCallback(() => setDbNotice(null), [])
+
+  /* ---------- READING THE DATABASE ----------
+     Called on mount, and again by reload(). Returns a description of what
+     happened rather than throwing, because the caller's job is to decide
+     whether to switch source — not to catch exceptions.
+
+     Promise.all runs all five reads AT THE SAME TIME. Done one after another
+     they would take five round trips; done together they take one, which on a
+     conference wifi connection is the difference between a console that opens
+     and a console that appears broken. */
+  const loadFromDatabase = useCallback(async () => {
+    const [exp, ppl, crg, inv, emg] = await Promise.all([
+      expeditionDb.fetchExpeditions(),
+      personnelDb.fetchPersonnel(),
+      cargoDb.fetchCargo(),
+      inventoryDb.fetchInventory(),
+      emergencyDb.fetchEmergencies(),
+    ])
+
+    const failed = [exp, ppl, crg, inv, emg].find((r) => r.error)
+    if (failed) {
+      return { ok: false, message: describeDbError(failed.error) }
+    }
+
+    /* ALL FIVE TABLES EMPTY IS TREATED AS "NOT SET UP", NOT AS "NO DATA".
+       This is the one genuinely tricky case in the whole file. When Row Level
+       Security is on and no policy has been created, Supabase does not return
+       an error — it returns zero rows, cheerfully. From here that looks exactly
+       like a database whose tables exist but were never seeded. Either way the
+       honest move is the same: keep the demo data so the console has something
+       to show, and say which two things it might be. */
+    const total = exp.rows.length + ppl.rows.length + crg.rows.length + inv.rows.length + emg.rows.length
+    if (total === 0) {
+      return {
+        ok: false,
+        message:
+          'Connected to Supabase, but all five tables came back empty. Either the seed data was never run, or Row Level Security is blocking reads — those look identical from the browser. Run supabase/schema.sql in the SQL Editor; it creates the tables, the rows and the policies. Showing demo data meanwhile.',
+      }
+    }
+
+    setExpeditions(exp.rows)
+    setPersonnel(ppl.rows)
+    setCargo(crg.rows)
+    setInventory(inv.rows)
+    setEmergencies(emg.rows)
+    return { ok: true }
+  }, [])
+
+  /* ---------- THE STARTUP LOAD ----------
+     Two paths, and the demo one is deliberately untouched from the nine
+     phases before the database existed: a short pause, then the data that was
+     already in state. The pause is not padding — it means the loading
+     spinners on every page are real code paths we have actually watched work.
+
+     Nothing here can leave the app with no data. The demo arrays are already
+     in state before this runs; a database read either replaces them or does
+     not. There is no in-between where the screen is empty. */
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 350)
-    return () => clearTimeout(timer)
+    let cancelled = false
+
+    if (!isSupabaseConfigured()) {
+      const timer = setTimeout(() => setLoading(false), 350)
+      return () => clearTimeout(timer)
+    }
+
+    loadFromDatabase()
+      .then((result) => {
+        if (cancelled) return
+        if (result.ok) {
+          setSource(DATA_SOURCE.SUPABASE)
+          setDbNotice(null)
+        } else {
+          setSource(DATA_SOURCE.DEMO)
+          setDbNotice({ kind: 'load', message: result.message })
+        }
+      })
+      .catch((err) => {
+        /* Belt and braces. db.js is written so that nothing in it throws, so
+           reaching here means something genuinely unexpected happened — and
+           the response is still to show the demo data rather than a blank
+           page with a stack trace behind it. */
+        if (cancelled) return
+        setSource(DATA_SOURCE.DEMO)
+        setDbNotice({
+          kind: 'load',
+          message: `Unexpected problem reading the database: ${err?.message || err}`,
+        })
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    /* `cancelled` guards against a reply arriving after this component has
+       gone away — which happens constantly in development, every time Vite
+       hot-reloads this file mid-request. Without it React warns about setting
+       state on something that no longer exists. */
+    return () => {
+      cancelled = true
+    }
+  }, [loadFromDatabase])
+
+  /** Used by the Retry button on the notice strip. */
+  const reload = useCallback(async () => {
+    if (!isSupabaseConfigured()) return
+    setLoading(true)
+    setDbNotice(null)
+    const result = await loadFromDatabase()
+    if (result.ok) {
+      setSource(DATA_SOURCE.SUPABASE)
+    } else {
+      setDbNotice({ kind: 'load', message: result.message })
+    }
+    setLoading(false)
+  }, [loadFromDatabase])
+
+  /* ---------- WRITING TO THE DATABASE ----------
+     THE SINGLE MOST IMPORTANT LINE IN THIS FILE IS THE ONE THAT IS MISSING:
+     nothing ever `await`s this function. It is called and forgotten.
+
+     Why that is the right design and not laziness:
+       Every action below has already updated the screen by the time this
+       runs. If the UI waited for the database, then reporting an emergency
+       would take as long as the slowest network round trip — and the
+       connected chain from section 12 of the brief (alert count goes up,
+       person flips to EMERGENCY, marker turns red) would visibly lag on a bad
+       connection. Fire-and-forget means the demo behaves IDENTICALLY whether
+       the database is fast, slow, or not configured at all. The only thing
+       the network can affect is whether the change is still there tomorrow.
+
+     When it is not configured this returns immediately and does nothing, so
+     every action can call it unconditionally. There is no `if (database)`
+     scattered through the twelve actions below — that check lives here. */
+  const pushToDatabase = useCallback((what, run) => {
+    if (!isSupabaseConfigured()) return
+
+    Promise.resolve()
+      .then(run)
+      .then((result) => {
+        if (result?.error) {
+          setDbNotice({
+            kind: 'save',
+            message: `Could not save ${what}: ${describeDbError(result.error)}`,
+          })
+        }
+      })
+      .catch((err) => {
+        setDbNotice({
+          kind: 'save',
+          message: `Could not save ${what}: ${err?.message || err}`,
+        })
+      })
   }, [])
 
   /* ---------- 3. ACTIVITY LOG ----------
@@ -107,7 +319,13 @@ export function DataProvider({ children }) {
      5. ACTIONS — the only ways the data is allowed to change.
      ============================================================ */
 
-  /* --- EXPEDITIONS --- */
+  /* --- EXPEDITIONS ---
+     Each action follows the same three steps, in this order:
+       1. update the screen        (setExpeditions)
+       2. write the activity line  (logActivity)
+       3. tell the database        (pushToDatabase — nobody waits for it)
+     Steps 1 and 2 are what the demo shows. Step 3 is what makes it survive a
+     refresh, and does nothing at all when there is no database. */
   const addExpedition = useCallback(
     (fields) => {
       const record = {
@@ -120,9 +338,10 @@ export function DataProvider({ children }) {
       }
       setExpeditions((prev) => [...prev, record])
       logActivity('EXPEDITION', `${record.id} ${record.name} created`)
+      pushToDatabase(`expedition ${record.id}`, () => expeditionDb.insertExpedition(record))
       return record
     },
-    [expeditions, logActivity]
+    [expeditions, logActivity, pushToDatabase]
   )
 
   const updateExpedition = useCallback(
@@ -130,16 +349,18 @@ export function DataProvider({ children }) {
       setExpeditions((prev) => prev.map((e) => (e.id === id ? { ...e, ...changes } : e)))
       if (changes.status) logActivity('EXPEDITION', `${id} status changed to ${changes.status}`)
       else logActivity('EXPEDITION', `${id} updated`)
+      pushToDatabase(`expedition ${id}`, () => expeditionDb.updateExpedition(id, changes))
     },
-    [logActivity]
+    [logActivity, pushToDatabase]
   )
 
   const deleteExpedition = useCallback(
     (id) => {
       setExpeditions((prev) => prev.filter((e) => e.id !== id))
       logActivity('EXPEDITION', `${id} removed`)
+      pushToDatabase(`removal of expedition ${id}`, () => expeditionDb.deleteExpedition(id))
     },
-    [logActivity]
+    [logActivity, pushToDatabase]
   )
 
   /* --- PERSONNEL --- */
@@ -153,9 +374,10 @@ export function DataProvider({ children }) {
       }
       setPersonnel((prev) => [...prev, record])
       logActivity('PERSONNEL', `${record.id} ${record.name} added to roster`)
+      pushToDatabase(`${record.name}'s record`, () => personnelDb.insertPerson(record))
       return record
     },
-    [personnel, logActivity]
+    [personnel, logActivity, pushToDatabase]
   )
 
   const updatePerson = useCallback(
@@ -173,11 +395,14 @@ export function DataProvider({ children }) {
         }
       }
 
-      setPersonnel((prev) =>
-        prev.map((p) =>
-          p.id === id ? { ...p, ...patch, last_updated: new Date().toISOString() } : p
-        )
-      )
+      /* ONE timestamp, made once, used by both the screen and the database.
+         Calling new Date() twice — once inside setPersonnel and once in the
+         push below — would store two values milliseconds apart and leave the
+         browser and the database quietly disagreeing about when this
+         happened. Cheap to get wrong, so it is made here and shared. */
+      const stampedPatch = { ...patch, last_updated: new Date().toISOString() }
+
+      setPersonnel((prev) => prev.map((p) => (p.id === id ? { ...p, ...stampedPatch } : p)))
 
       const person = personnel.find((p) => p.id === id)
       const who = `${id}${person ? ` ${person.name}` : ''}`
@@ -188,8 +413,12 @@ export function DataProvider({ children }) {
         const place = locations.find((l) => l.id === changes.location_id)
         logActivity('PERSONNEL', `${who} moved to ${place ? place.name : changes.location_id}`)
       }
+
+      pushToDatabase(`${person ? person.name : id}'s record`, () =>
+        personnelDb.updatePerson(id, stampedPatch)
+      )
     },
-    [personnel, locations, logActivity]
+    [personnel, locations, logActivity, pushToDatabase]
   )
 
   /* --- CARGO --- */
@@ -204,9 +433,10 @@ export function DataProvider({ children }) {
       }
       setCargo((prev) => [...prev, record])
       logActivity('CARGO', `${record.id} ${record.item_name} logged`)
+      pushToDatabase(`consignment ${record.id}`, () => cargoDb.insertCargo(record))
       return record
     },
-    [cargo, logActivity]
+    [cargo, logActivity, pushToDatabase]
   )
 
   const updateCargo = useCallback(
@@ -219,8 +449,9 @@ export function DataProvider({ children }) {
           `${id}${item ? ` ${item.item_name}` : ''} marked ${changes.status.replace('_', ' ')}`
         )
       }
+      pushToDatabase(`consignment ${id}`, () => cargoDb.updateCargo(id, changes))
     },
-    [cargo, logActivity]
+    [cargo, logActivity, pushToDatabase]
   )
 
   /* --- INVENTORY ---
@@ -239,18 +470,23 @@ export function DataProvider({ children }) {
       }
       setInventory((prev) => [...prev, record])
       logActivity('INVENTORY', `${record.item_name} added at ${record.location}`)
+      pushToDatabase(`${record.item_name}`, () => inventoryDb.insertInventoryItem(record))
       return record
     },
-    [inventory, logActivity]
+    [inventory, logActivity, pushToDatabase]
   )
 
   const updateInventoryItem = useCallback(
     (id, changes) => {
+      /* Same one-timestamp rule as updatePerson: made once here, used by both
+         the screen and the database. */
+      const stampedChanges = { ...changes, updated_at: new Date().toISOString() }
+
       setInventory((prev) => {
         return prev.map((item) => {
           if (item.id !== id) return item
 
-          const updated = { ...item, ...changes, updated_at: new Date().toISOString() }
+          const updated = { ...item, ...stampedChanges }
 
           /* If this change is what pushed the item below its minimum,
              record that in the activity log. Comparing before/after means
@@ -264,8 +500,14 @@ export function DataProvider({ children }) {
           return updated
         })
       })
+
+      /* Note what is sent: the two numbers, never a "low stock" flag. There is
+         no such column and there never will be — the database stores quantity
+         and minimum_quantity, and both the badge on screen and the SQL view in
+         supabase/schema.sql work the answer out from them. */
+      pushToDatabase(`stock for ${id}`, () => inventoryDb.updateInventoryItem(id, stampedChanges))
     },
-    [logActivity]
+    [logActivity, pushToDatabase]
   )
 
   /** Convenience used by the +/- buttons on the Inventory page. */
@@ -294,16 +536,27 @@ export function DataProvider({ children }) {
         ...fields,
       }
       setEmergencies((prev) => [record, ...prev])
+      pushToDatabase(`incident ${record.id}`, () => emergencyDb.insertEmergency(record))
 
       /* Connected effect 1: the affected person goes to EMERGENCY status,
          which changes their badge on Personnel AND their marker on the map. */
       if (record.personnel_id) {
+        const stamp = new Date().toISOString()
         setPersonnel((prev) =>
           prev.map((p) =>
-            p.id === record.personnel_id
-              ? { ...p, status: 'EMERGENCY', last_updated: new Date().toISOString() }
-              : p
+            p.id === record.personnel_id ? { ...p, status: 'EMERGENCY', last_updated: stamp } : p
           )
+        )
+        /* AND THE SAME CHANGE IS SAVED. This is a SECOND write, to a second
+           table, from one button press — and it has to be here, because this
+           status change does not go through updatePerson(). Miss it and the
+           demo's centrepiece half-persists: refresh the page and the incident
+           is still there but the person it happened to looks fine. */
+        pushToDatabase('the affected person’s status', () =>
+          personnelDb.updatePerson(record.personnel_id, {
+            status: 'EMERGENCY',
+            last_updated: stamp,
+          })
         )
       }
 
@@ -317,47 +570,64 @@ export function DataProvider({ children }) {
       )
       return record
     },
-    [emergencies, logActivity]
+    [emergencies, logActivity, pushToDatabase]
   )
 
   const updateEmergency = useCallback(
     (id, changes) => {
-      setEmergencies((prev) =>
-        prev.map((incident) => {
-          if (incident.id !== id) return incident
+      const incident = emergencies.find((e) => e.id === id)
 
-          const updated = { ...incident, ...changes }
-          if (changes.status === 'RESOLVED' && !updated.resolved_at) {
-            updated.resolved_at = new Date().toISOString()
-          }
+      /* THE TIMESTAMPS ARE WORKED OUT HERE, NOT INSIDE setEmergencies.
+         They used to be computed inside the mapper, which was fine while the
+         screen was the only place they went. Now they also have to be sent to
+         the database, and a value computed inside a setState updater is not
+         available out here to send. So the whole patch is built first, then
+         handed to both. */
+      const patch = { ...changes }
 
-          /* The same idea for the moment a team picked the incident up.
-             "How long until somebody acknowledged it" is the number an
-             emergency service is actually judged on, and it cannot be
-             worked out afterwards from the record — it only exists if it
-             is stamped here, at the moment it happens.
+      if (changes.status === 'RESOLVED' && !incident?.resolved_at) {
+        patch.resolved_at = new Date().toISOString()
+      }
 
-             The `!updated.acknowledged_at` guard means a second edit does
-             not move the stamp. The first acknowledgement is the one that
-             counts. */
-          if (changes.status === 'RESPONDING' && !updated.acknowledged_at) {
-            updated.acknowledged_at = new Date().toISOString()
-          }
+      /* The same idea for the moment a team picked the incident up.
+         "How long until somebody acknowledged it" is the number an
+         emergency service is actually judged on, and it cannot be
+         worked out afterwards from the record — it only exists if it
+         is stamped here, at the moment it happens.
 
-          /* Connected effect 2: resolving an incident releases the person
-             back to ACTIVE, so the map marker turns from red to green. */
-          if (changes.status === 'RESOLVED' && incident.personnel_id) {
-            setPersonnel((prevPeople) =>
-              prevPeople.map((p) =>
-                p.id === incident.personnel_id && p.status === 'EMERGENCY'
-                  ? { ...p, status: 'ACTIVE', last_updated: new Date().toISOString() }
-                  : p
-              )
+         The `!incident.acknowledged_at` guard means a second edit does
+         not move the stamp. The first acknowledgement is the one that
+         counts. */
+      if (changes.status === 'RESPONDING' && !incident?.acknowledged_at) {
+        patch.acknowledged_at = new Date().toISOString()
+      }
+
+      setEmergencies((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)))
+      pushToDatabase(`incident ${id}`, () => emergencyDb.updateEmergency(id, patch))
+
+      /* Connected effect 2: resolving an incident releases the person
+         back to ACTIVE, so the map marker turns from red to green. */
+      if (changes.status === 'RESOLVED' && incident?.personnel_id) {
+        const person = personnel.find((p) => p.id === incident.personnel_id)
+        if (person?.status === 'EMERGENCY') {
+          const stamp = new Date().toISOString()
+          setPersonnel((prev) =>
+            prev.map((p) =>
+              p.id === incident.personnel_id ? { ...p, status: 'ACTIVE', last_updated: stamp } : p
             )
-          }
-          return updated
-        })
-      )
+          )
+          /* Saved for the same reason the flip to EMERGENCY is saved: it is a
+             change to a person made from the Emergency page, so nothing else
+             is going to write it. */
+          pushToDatabase('the released person’s status', () =>
+            personnelDb.updatePerson(incident.personnel_id, {
+              status: 'ACTIVE',
+              last_updated: stamp,
+            })
+          )
+        }
+      }
+
       if (changes.status) {
         /* statusLabel() for the same reason reportEmergency() uses it: the
            raw key would print "RESPONDING" in a log whose every other line
@@ -368,7 +638,7 @@ export function DataProvider({ children }) {
         )
       }
     },
-    [logActivity]
+    [emergencies, personnel, logActivity, pushToDatabase]
   )
 
   /* ============================================================
@@ -441,6 +711,13 @@ export function DataProvider({ children }) {
       setError,
       setSource,
 
+      /* the database, and whether it is behaving */
+      dbNotice,
+      dismissDbNotice,
+      reload,
+      databaseConfigured: isSupabaseConfigured(),
+      databaseMessage: supabaseConfig.message,
+
       /* calculated numbers */
       stats,
 
@@ -477,6 +754,9 @@ export function DataProvider({ children }) {
       loading,
       error,
       source,
+      dbNotice,
+      dismissDbNotice,
+      reload,
       stats,
       getExpedition,
       getLocation,
