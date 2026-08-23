@@ -36,6 +36,7 @@ import HorizontalBarChart from '../components/HorizontalBarChart'
 import Panel from '../components/Panel'
 import StateBlock from '../components/StateBlock'
 import { useData } from '../store/DataContext'
+import { useAuth } from '../store/AuthContext'
 import { clampPercent, formatNumber, timeAgo } from '../lib/format'
 import {
   CONDITION,
@@ -98,6 +99,11 @@ export default function Inventory({ goTo }) {
     updateInventoryItem,
     adjustInventoryQuantity,
   } = useData()
+
+  /* WHAT THIS ROLE MAY CHANGE — see src/lib/roles.js. The low-stock warnings
+     are still fully visible to a read-only session; only the +/- buttons,
+     the Restock shortcut and the Add form are withheld. */
+  const { canManage } = useAuth()
 
   const [filters, setFilters] = useState(NO_FILTERS)
   const [showForm, setShowForm] = useState(false)
@@ -520,7 +526,7 @@ export default function Inventory({ goTo }) {
                 <X size={13} /> Clear filters
               </button>
             )}
-            {!showForm && (
+            {canManage && !showForm && (
               <button type="button" className="btn btn--sm" onClick={() => setShowForm(true)}>
                 <Plus size={13} /> Add
               </button>
@@ -670,7 +676,7 @@ export default function Inventory({ goTo }) {
                       type="button"
                       className="btn btn--ghost btn--sm mono"
                       style={{ padding: '4px 7px', fontSize: 11 }}
-                      disabled={Number(r.quantity) <= 0}
+                      disabled={!canManage || Number(r.quantity) <= 0}
                       onClick={() => adjustInventoryQuantity(r.id, -step)}
                       aria-label={`Reduce ${r.item_name} by ${step}`}
                     >
@@ -681,6 +687,7 @@ export default function Inventory({ goTo }) {
                       type="button"
                       className="btn btn--sm mono"
                       style={{ padding: '4px 7px', fontSize: 11 }}
+                      disabled={!canManage}
                       onClick={() => adjustInventoryQuantity(r.id, step)}
                       aria-label={`Increase ${r.item_name} by ${step}`}
                     >
@@ -698,6 +705,7 @@ export default function Inventory({ goTo }) {
                 <select
                   className="select-inline"
                   value={r.condition}
+                  disabled={!canManage}
                   onChange={(e) => updateInventoryItem(r.id, { condition: e.target.value })}
                   aria-label={`Condition of ${r.item_name}`}
                 >
@@ -800,7 +808,7 @@ export default function Inventory({ goTo }) {
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     <Badge map={STOCK_STATUS} value={stockStatus(item)} />
-                    {Number(item.minimum_quantity) > 0 && (
+                    {canManage && Number(item.minimum_quantity) > 0 && (
                       <button
                         type="button"
                         className="btn btn--ghost btn--sm"

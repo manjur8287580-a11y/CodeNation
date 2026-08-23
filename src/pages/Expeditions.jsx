@@ -27,6 +27,7 @@ import DataTable from '../components/DataTable'
 import Panel from '../components/Panel'
 import StateBlock from '../components/StateBlock'
 import { useData } from '../store/DataContext'
+import { useAuth } from '../store/AuthContext'
 import { clampPercent, formatDate } from '../lib/format'
 import {
   CARGO_STATUS,
@@ -59,6 +60,11 @@ export default function Expeditions({ goTo }) {
     cargoForExpedition,
     locations,
   } = useData()
+
+  /* WHAT THIS ROLE MAY CHANGE. A read-only session still sees every record
+     and every number on this page — it just cannot edit them. See
+     src/lib/roles.js. */
+  const { canManage } = useAuth()
 
   /* Which expedition's details are open on the right. Defaults to the
      first one so the panel is never empty when the page loads. */
@@ -304,6 +310,7 @@ export default function Expeditions({ goTo }) {
           title="All Expeditions"
           subtitle="Click a row to load its team and cargo"
           action={
+            canManage &&
             !showForm && (
               <button type="button" className="btn btn--sm" onClick={() => setShowForm(true)}>
                 <Plus size={13} /> New
@@ -379,6 +386,7 @@ export default function Expeditions({ goTo }) {
                   <select
                     className="select-inline"
                     value={r.status}
+                    disabled={!canManage}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => updateExpedition(r.id, { status: e.target.value })}
                     aria-label={`Status for ${r.name}`}

@@ -32,6 +32,7 @@ import HorizontalBarChart from '../components/HorizontalBarChart'
 import Panel from '../components/Panel'
 import StateBlock from '../components/StateBlock'
 import { useData } from '../store/DataContext'
+import { useAuth } from '../store/AuthContext'
 import { formatNumber, formatQuantity, timeAgo } from '../lib/format'
 import { CARGO_STATUS, PRIORITY, optionsFrom, statusColour, statusLabel } from '../lib/statuses'
 
@@ -56,6 +57,9 @@ const NO_FILTERS = { search: '', status: 'ALL', category: 'ALL', priority: 'ALL'
 export default function Cargo({ goTo }) {
   const { cargo, expeditions, locations, loading, error, addCargo, updateCargo, getExpedition } =
     useData()
+
+  /* WHAT THIS ROLE MAY CHANGE — see src/lib/roles.js. */
+  const { canManage } = useAuth()
 
   /* Which consignment is open in the detail panel. Defaults to whatever is
      delayed, because that is what an operator actually needs to look at. */
@@ -464,7 +468,7 @@ export default function Cargo({ goTo }) {
                 <X size={13} /> Clear filters
               </button>
             )}
-            {!showForm && (
+            {canManage && !showForm && (
               <button type="button" className="btn btn--sm" onClick={() => setShowForm(true)}>
                 <Plus size={13} /> Log
               </button>
@@ -628,6 +632,7 @@ export default function Cargo({ goTo }) {
                 <select
                   className="select-inline"
                   value={r.priority}
+                  disabled={!canManage}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) => updateCargo(r.id, { priority: e.target.value })}
                   aria-label={`Priority for ${r.item_name}`}
@@ -650,6 +655,7 @@ export default function Cargo({ goTo }) {
                 <select
                   className="select-inline"
                   value={r.status}
+                  disabled={!canManage}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) => updateCargo(r.id, { status: e.target.value })}
                   aria-label={`Status for ${r.item_name}`}
@@ -778,6 +784,7 @@ export default function Cargo({ goTo }) {
                   id="cg-delay"
                   className="input"
                   value={selected.delay_reason || ''}
+                  disabled={!canManage}
                   onChange={(e) => updateCargo(selected.id, { delay_reason: e.target.value })}
                   placeholder="Why is this consignment held up?"
                 />

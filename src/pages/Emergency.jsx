@@ -58,7 +58,9 @@ import DataTable from '../components/DataTable'
 import Panel from '../components/Panel'
 import StateBlock from '../components/StateBlock'
 import { useData } from '../store/DataContext'
+import { useAuth } from '../store/AuthContext'
 import { formatCoords, formatDateTime, formatQuantity, timeAgo } from '../lib/format'
+import { rolesThatCanRespond } from '../lib/roles'
 import {
   EMERGENCY_STATUS,
   EMERGENCY_TYPE,
@@ -192,6 +194,16 @@ export default function Emergency({ goTo }) {
     getLocation,
     getPerson,
   } = useData()
+
+  /* WHAT THIS ROLE MAY DO HERE — and note which half is NOT gated.
+
+     canRespond controls acknowledging and resolving. Reporting is not
+     controlled by anything: every role can file an incident, including the
+     read-only one. The reasoning is at the top of src/lib/roles.js, and it
+     is the one permission decision on this page worth defending out loud —
+     the person standing next to the casualty is often the person with the
+     least authority in the system. */
+  const { canRespond } = useAuth()
 
   /* Which incident is open in the detail panel. Defaults to the most
      urgent OPEN one, because that is what a duty officer opens the page
@@ -479,8 +491,10 @@ export default function Emergency({ goTo }) {
                 {unacknowledged.length > 0 && ` · ${unacknowledged.length} not yet acknowledged`}
               </div>
               <div className="mt-1 text-[12.5px] text-mid">
-                Worst first, then longest waiting. Acknowledge to record that a team has picked it
-                up; resolve to close it and release the person involved.
+                Worst first, then longest waiting.{' '}
+                {canRespond
+                  ? 'Acknowledge to record that a team has picked it up; resolve to close it and release the person involved.'
+                  : 'Acknowledging and resolving belong to another role, so this board is read-only for you — open any card to read the full record.'}
               </div>
             </div>
           </div>
@@ -493,6 +507,7 @@ export default function Emergency({ goTo }) {
                 person={incident.personnel_id ? getPerson(incident.personnel_id) : null}
                 now={now}
                 selected={incident.id === selectedId}
+                canRespond={canRespond}
                 onAcknowledge={() => acknowledge(incident.id)}
                 onResolve={() => resolve(incident.id)}
                 onOpen={() => setSelectedId(incident.id)}
@@ -1009,6 +1024,7 @@ export default function Emergency({ goTo }) {
                   id="em-assign"
                   className="input"
                   value={selected.assigned_team || ''}
+                  disabled={!canRespond}
                   onChange={(e) => updateEmergency(selected.id, { assigned_team: e.target.value })}
                   placeholder="Who is dealing with this?"
                 />
@@ -1021,6 +1037,7 @@ export default function Emergency({ goTo }) {
                   id="em-note"
                   className="input"
                   value={selected.response_note || ''}
+                  disabled={!canRespond}
                   onChange={(e) => updateEmergency(selected.id, { response_note: e.target.value })}
                   placeholder="e.g. Sled team departed 02:15, ETA 40 min"
                 />
@@ -1040,27 +1057,41 @@ export default function Emergency({ goTo }) {
             {/* ---------- Actions ---------- */}
             {selected.status !== 'RESOLVED' && (
               <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--line-soft)] pt-4">
-                {!selected.acknowledged_at && (
-                  <button
-                    type="button"
-                    className="btn btn--sm"
-                    onClick={() => acknowledge(selected.id)}
-                  >
-                    <Clock size={13} /> Acknowledge
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="btn btn--sm"
-                  onClick={() => resolve(selected.id)}
-                  style={{ borderColor: 'rgba(79,201,138,0.45)', color: 'var(--green)' }}
-                >
-                  <CheckCircle2 size={13} /> Resolve
-                </button>
-                {selected.personnel_id && (
-                  <span className="self-center text-[11px] text-low">
-                    Resolving releases {getPerson(selected.personnel_id)?.name || 'the person'} back
-                    to Active.
+                {canRespond ? (
+                  <>
+                    {!selected.acknowledged_at && (
+                      <button
+                        type="button"
+                        className="btn btn--sm"
+                        onClick={() => acknowledge(selected.id)}
+                      >
+                        <Clock size={13} /> Acknowledge
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn--sm"
+                      onClick={() => resolve(selected.id)}
+                      style={{ borderColor: 'rgba(79,201,138,0.45)', color: 'var(--green)' }}
+                    >
+                      <CheckCircle2 size={13} /> Resolve
+                    </button>
+                    {selected.personnel_id && (
+                      <span className="self-center text-[11px] text-low">
+                        Resolving releases {getPerson(selected.personnel_id)?.name || 'the person'}{' '}
+                        back to Active.
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  /* The role names in this sentence are DERIVED from the
+                     table in src/lib/roles.js, not typed here, so the page
+                     cannot end up naming the wrong roles. */
+                  <span className="text-[11.5px] leading-relaxed text-low">
+                    Deciding that an incident is being handled, or is over, belongs to the{' '}
+                    <span className="text-mid">{rolesThatCanRespond().join(' and the ')}</span>, so
+                    those controls are not shown for this role. Reporting an incident is not
+                    restricted — the form below works for everyone.
                   </span>
                 )}
               </div>
@@ -1200,7 +1231,7 @@ export default function Emergency({ goTo }) {
    Split out for the same reason the weather station card is: the page
    body stays readable, and one incident's layout lives in one place.
    ============================================================ */
-function IncidentCard({ incident, person, now, selected, onAcknowledge, onResolve, onOpen }) {
+function IncidentCard({ incident, person, now, selected, canRespond, onAcknowledge, onResolve, onOpen }) {
   const waiting = !incident.acknowledged_at
 
   return (
@@ -1286,19 +1317,24 @@ function IncidentCard({ incident, person, now, selected, onAcknowledge, onResolv
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {waiting && (
+        {/* Acknowledge and Resolve belong to the roles that may respond.
+            Detail is always there, so a read-only session can still open the
+            incident and read everything about it. */}
+        {canRespond && waiting && (
           <button type="button" className="btn btn--sm" onClick={onAcknowledge}>
             <Clock size={12} /> Acknowledge
           </button>
         )}
-        <button
-          type="button"
-          className="btn btn--sm"
-          onClick={onResolve}
-          style={{ borderColor: 'rgba(79,201,138,0.45)', color: 'var(--green)' }}
-        >
-          <CheckCircle2 size={12} /> Resolve
-        </button>
+        {canRespond && (
+          <button
+            type="button"
+            className="btn btn--sm"
+            onClick={onResolve}
+            style={{ borderColor: 'rgba(79,201,138,0.45)', color: 'var(--green)' }}
+          >
+            <CheckCircle2 size={12} /> Resolve
+          </button>
+        )}
         <button type="button" className="btn btn--ghost btn--sm" onClick={onOpen}>
           Detail
         </button>

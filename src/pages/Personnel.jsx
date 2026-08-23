@@ -41,6 +41,7 @@ import DataTable from '../components/DataTable'
 import Panel from '../components/Panel'
 import StateBlock from '../components/StateBlock'
 import { useData } from '../store/DataContext'
+import { useAuth } from '../store/AuthContext'
 import { formatCoords, formatDateTime, timeAgo } from '../lib/format'
 import {
   EMERGENCY_STATUS,
@@ -98,6 +99,10 @@ export default function Personnel({ goTo }) {
     getLocation,
     personnelForExpedition,
   } = useData()
+
+  /* WHAT THIS ROLE MAY CHANGE — see src/lib/roles.js. A read-only session
+     reads the whole roster; it just cannot move anybody. */
+  const { canManage } = useAuth()
 
   /* Which person is open in the right-hand panel. It opens on whoever is
      in EMERGENCY status, because that is who a commander would look at
@@ -428,6 +433,7 @@ export default function Personnel({ goTo }) {
               : 'Click a row to open their record'
           }
           action={
+            canManage &&
             !showForm && (
               <button type="button" className="btn btn--sm" onClick={() => setShowForm(true)}>
                 <UserPlus size={13} /> Add
@@ -583,6 +589,7 @@ export default function Personnel({ goTo }) {
                   <select
                     className="select-inline"
                     value={r.status}
+                    disabled={!canManage}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => updatePerson(r.id, { status: e.target.value })}
                     aria-label={`Status for ${r.name}`}
@@ -684,6 +691,7 @@ export default function Personnel({ goTo }) {
                       id="detail-status"
                       className="input"
                       value={selected.status}
+                      disabled={!canManage}
                       onChange={(e) => updatePerson(selected.id, { status: e.target.value })}
                     >
                       {optionsFrom(PERSONNEL_STATUS).map((opt) => (
@@ -701,6 +709,7 @@ export default function Personnel({ goTo }) {
                       id="detail-loc"
                       className="input"
                       value={selected.location_id || ''}
+                      disabled={!canManage}
                       onChange={(e) => updatePerson(selected.id, { location_id: e.target.value })}
                     >
                       <option value="">Not set</option>

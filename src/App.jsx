@@ -1,5 +1,6 @@
 /**
- * APP — the layout, and the thing that decides which page is on screen.
+ * APP — the layout, the sign-in gate, and the thing that decides which page
+ * is on screen.
  *
  * HOW NAVIGATION WORKS HERE (and why it looks so simple):
  *   We keep the name of the current page in a single piece of state:
@@ -12,15 +13,24 @@
  *   one line of state does the same job with no extra dependency and
  *   nothing new to explain. (Master prompt section 18 — don't overengineer.)
  *
+ * THE SIGN-IN GATE:
+ *   If nobody is signed in, this file renders the sign-in screen INSTEAD of
+ *   the console — one `if` near the top of the component. That is the whole
+ *   gate. It is not a security boundary and does not pretend to be; see the
+ *   comment at the top of src/lib/roles.js for the honest version.
+ *
  * THE LAYOUT: sidebar on the left, top bar across, page content below.
  */
 
 import { useState } from 'react'
+import { Eye } from 'lucide-react'
 import Sidebar from './components/Sidebar'
 import TopBar from './components/TopBar'
 import ErrorBoundary from './components/ErrorBoundary'
 import { findNavItem } from './lib/navigation'
+import { useAuth } from './store/AuthContext'
 
+import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Expeditions from './pages/Expeditions'
 import Personnel from './pages/Personnel'
@@ -31,6 +41,9 @@ import Weather from './pages/Weather'
 import Emergency from './pages/Emergency'
 
 export default function App() {
+  /* Who is signed in, and what they may change. */
+  const { user, canManage } = useAuth()
+
   /* Which module is on screen. */
   const [view, setView] = useState('dashboard')
 
@@ -48,6 +61,10 @@ export default function App() {
   }
 
   const nav = findNavItem(view)
+
+  /* THE GATE. Nobody signed in means the sign-in screen and nothing else —
+     no sidebar, no top bar, no data pages mounted behind it. */
+  if (!user) return <Login />
 
   /* Pick the page component for the current view. Every page receives
      goTo so it can link elsewhere in the console. */
@@ -92,6 +109,32 @@ export default function App() {
           onMenuClick={() => setNavOpen(true)}
           onAlertClick={() => goTo('emergency')}
         />
+
+        {/* ---------- READ-ONLY NOTICE ----------
+            One line, in ONE place, shown on every page for a role that
+            cannot change records. Without it the missing New / Add buttons
+            look like a bug rather than a permission.
+
+            The wording says "switched off" rather than "hidden" because both
+            things happen and the difference is deliberate: a button that only
+            performs an action is removed, while a dropdown that also DISPLAYS
+            a value is dimmed instead, so the value can still be read.
+
+            It is also where we make the important exception clear: a
+            read-only session can still report an emergency. The reason is
+            in src/lib/roles.js — blocking that would be dangerous in a
+            real system, so we do not model it here either. */}
+        {!canManage && (
+          <div className="readonly-strip">
+            <Eye size={14} strokeWidth={2} className="mt-0.5 shrink-0 text-[var(--green)]" />
+            <span>
+              <span className="text-hi">Read-only session.</span> The controls that change
+              expedition, roster, cargo and stock records are switched off for this role — removed
+              where they only act, dimmed where they also show a value. You can still report an
+              emergency — raising the alarm is never blocked.
+            </span>
+          </div>
+        )}
 
         <main className="flex-1 px-4 py-5 sm:px-6 sm:py-6">
           {/* key={view} restarts the error boundary when you navigate, so

@@ -11,15 +11,24 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { DataProvider } from './store/DataContext'
+import { AuthProvider } from './store/AuthContext'
 import './index.css'
 
-/* <DataProvider> wraps <App> so that EVERY page inside it can call
-   useData() and read the same shared data. This is the one line that
-   makes the "connected modules" behaviour possible. */
+/* TWO PROVIDERS, AND THE ORDER MATTERS.
+   <DataProvider> holds the expedition data. <AuthProvider> holds who is
+   signed in. Data is on the OUTSIDE so that the sign-in screen can read it —
+   that is how src/pages/Login.jsx shows the real expedition and personnel
+   counts before anybody has signed in.
+
+   <DataProvider> wrapping <App> is the one line that makes the "connected
+   modules" behaviour possible: every page inside it calls useData() and
+   reads the same shared records. */
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <DataProvider>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </DataProvider>
   </React.StrictMode>
 )

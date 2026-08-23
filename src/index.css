@@ -468,6 +468,17 @@
     outline: none;
   }
 
+  /* A field this role is not allowed to use — see src/lib/roles.js.
+     DIMMED, NOT HIDDEN, and that is the point: a read-only session must
+     still be able to READ the value. Hiding the select would hide the
+     status it is showing, which is information the scientist needs. */
+  .input:disabled,
+  textarea.input:disabled,
+  .select-inline:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
   /* --- Empty / loading / error states --- */
   .state-block {
     padding: 36px 20px;
@@ -632,6 +643,58 @@
     margin: 0;
     color: var(--ink-hi);
     text-align: right;
+  }
+
+  /* --- Sign-in screen: one of the four role choices ---
+     Used by src/pages/Login.jsx.
+
+     NOTE FOR ANYONE COMPARING THIS WITH THE BADGES: `login-role--active`
+     needs no entry in the safelist in tailwind.config.js, because Login.jsx
+     writes the name out in full:
+
+         className={`login-role ${active ? 'login-role--active' : ''}`}
+
+     Tailwind can find that text, so it keeps the rule. The badge classes are
+     built from a variable (`badge--${tone}`) and cannot be found, which is
+     the whole reason that safelist exists. */
+  .login-role {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background-color: var(--navy-800);
+    text-align: left;
+    transition:
+      border-color 0.14s ease,
+      background-color 0.14s ease;
+  }
+  .login-role:hover {
+    border-color: var(--ice-dim);
+    background-color: var(--navy-850);
+  }
+  /* The selected one also gets its role colour as an inline border colour and
+     a 3px inset stripe — set in the component, because the colour depends on
+     which role it is. */
+  .login-role--active {
+    background-color: var(--navy-850);
+  }
+
+  /* --- Read-only session notice (shown by src/App.jsx) ---
+     A missing button with no explanation looks like a broken app, so a
+     read-only role gets one line telling it why the buttons are missing. */
+  .readonly-strip {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 8px 16px;
+    border-bottom: 1px solid rgba(79, 201, 138, 0.28);
+    background: rgba(79, 201, 138, 0.06);
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--ink-mid);
   }
 }
 
