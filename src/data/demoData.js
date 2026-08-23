@@ -814,12 +814,30 @@ export const inventory = [
 
 /* ============================================================
    EMERGENCIES — 4 incidents (1 active, 2 responding, 1 resolved)
+   ============================================================
+   THREE FIELDS WORTH EXPLAINING:
+
+   location_id  – which known site on the map this happened at. `location`
+                  stays as the free-text detail an operator would actually
+                  write ("Maitri Sector B"), because "Maitri Station" is
+                  not where the casualty is. The id is what lets the
+                  Emergency page find the stores held at that site.
+
+   acknowledged_at – the moment a team picked it up, stamped by
+                  updateEmergency() in src/store/DataContext.jsx. The gap
+                  between reported_at and this is the response time, which
+                  is the number an emergency service is judged on.
+                  INC-001 deliberately has none: nobody has acknowledged
+                  it yet, and the response board shows exactly that.
+
+   resolved_at  – when it was closed out.
    ============================================================ */
 export const emergencies = [
   {
     id: 'INC-001',
     type: 'MEDICAL',
     location: 'Maitri Sector B',
+    location_id: 'LOC-MAITRI',
     latitude: -70.7455,
     longitude: 11.5874,
     severity: 'HIGH',
@@ -835,6 +853,7 @@ export const emergencies = [
     id: 'INC-002',
     type: 'EQUIPMENT_FAILURE',
     location: 'Bharati Power Module 2',
+    location_id: 'LOC-BHARATI',
     latitude: -69.4071,
     longitude: 76.1855,
     severity: 'MEDIUM',
@@ -842,6 +861,7 @@ export const emergencies = [
       'Primary generator tripped on overtemperature. Station running on backup unit at reduced load. Non-essential lab circuits shed.',
     status: 'RESPONDING',
     reported_at: hoursAgo(9),
+    acknowledged_at: minsAgo(518) /* picked up 22 min after the report */,
     assigned_team: 'Bharati Technical Team',
     personnel_id: 'P-012',
     expedition_id: 'EXP-002',
@@ -850,6 +870,7 @@ export const emergencies = [
     id: 'INC-003',
     type: 'WEATHER',
     location: 'Kongsvegen Glacier Camp',
+    location_id: 'LOC-CAMP-KVG',
     latitude: 78.8021,
     longitude: 12.9855,
     severity: 'HIGH',
@@ -857,6 +878,7 @@ export const emergencies = [
       'Rapid visibility drop with gusts above 60 km/h. Field party sheltering in camp; glacier transects suspended until conditions ease.',
     status: 'RESPONDING',
     reported_at: hoursAgo(5),
+    acknowledged_at: minsAgo(292) /* picked up 8 min after the report */,
     assigned_team: 'Himadri Field Safety Unit',
     personnel_id: 'P-014',
     expedition_id: 'EXP-003',
@@ -865,6 +887,7 @@ export const emergencies = [
     id: 'INC-004',
     type: 'OVERDUE_CHECKIN',
     location: 'Larsemann Ridge Route',
+    location_id: 'LOC-CAMP-LAR',
     latitude: -69.3968,
     longitude: 76.2255,
     severity: 'LOW',
@@ -872,7 +895,12 @@ export const emergencies = [
       'Scheduled 18:00 check-in missed by 40 minutes. Contact re-established; cause was a depleted radio battery. No injuries.',
     status: 'RESOLVED',
     reported_at: daysAgo(2),
-    resolved_at: daysAgo(2),
+    acknowledged_at: minsAgo(2875) /* picked up 5 min after the report */,
+    /* Closed 41 minutes after it was raised. This used to read daysAgo(2),
+       the very same timestamp as reported_at, which made the incident look
+       like it was resolved in zero minutes the moment the Emergency page
+       started showing how long each one took. */
+    resolved_at: minsAgo(2839),
     assigned_team: 'Bharati Search Team',
     personnel_id: 'P-011',
     expedition_id: 'EXP-002',
@@ -882,20 +910,35 @@ export const emergencies = [
 /* ============================================================
    ACTIVITY LOG — powers the "Recent Activity" panel.
    New entries get added at runtime as you use the app.
+   ============================================================
+   THESE LINES MUST BE WORDED THE WAY THE APP WORDS THEM.
+
+   Every message below is hand-written, but the app will write more of
+   them while you use it. If the two are worded differently, the panel
+   looks like two different systems wrote it. So the severity in the
+   brackets is written "(High)" — matching statusLabel(SEVERITY, …) in
+   src/lib/statuses.js, which is what reportEmergency() uses — and NOT
+   "(HIGH)", which is the raw key.
+
+   This was actually wrong until the Emergency page was built: reporting
+   an incident produced "… (Critical)" directly above a seeded line
+   reading "… (HIGH)". Cargo and personnel lines below keep their SHOUTED
+   status ("marked DELAYED", "set to IN TRANSIT") because that IS what
+   updateCargo() and updatePerson() write.
    ============================================================ */
 export const activityLog = [
   {
     id: 'A-001',
     at: minsAgo(94),
     kind: 'EMERGENCY',
-    message: 'INC-001 declared — Medical, Maitri Sector B (HIGH)',
+    message: 'INC-001 declared — Medical, Maitri Sector B (High)',
   },
   { id: 'A-002', at: minsAgo(88), kind: 'INVENTORY', message: 'Trauma / Frostbite Kits fell below minimum at Schirmacher Field Camp' },
   { id: 'A-003', at: hoursAgo(2), kind: 'CARGO', message: 'C-105 Generator Spare Parts marked DELAYED at Novo Runway' },
   { id: 'A-004', at: hoursAgo(3), kind: 'PERSONNEL', message: 'P-004 Sgt. Harpreet Singh set to IN TRANSIT — Maitri to Novo Runway' },
-  { id: 'A-005', at: hoursAgo(5), kind: 'EMERGENCY', message: 'INC-003 declared — Weather Hazard, Kongsvegen Glacier Camp (HIGH)' },
+  { id: 'A-005', at: hoursAgo(5), kind: 'EMERGENCY', message: 'INC-003 declared — Weather Hazard, Kongsvegen Glacier Camp (High)' },
   { id: 'A-006', at: hoursAgo(6), kind: 'CARGO', message: 'C-104 Ration Packs ARRIVED at Schirmacher Field Camp' },
-  { id: 'A-007', at: hoursAgo(9), kind: 'EMERGENCY', message: 'INC-002 declared — Equipment Failure, Bharati Power Module 2 (MEDIUM)' },
+  { id: 'A-007', at: hoursAgo(9), kind: 'EMERGENCY', message: 'INC-002 declared — Equipment Failure, Bharati Power Module 2 (Medium)' },
   { id: 'A-008', at: hoursAgo(14), kind: 'EXPEDITION', message: 'EXP-003 Himadri Arctic Glaciology progress updated to 82%' },
 ]
 

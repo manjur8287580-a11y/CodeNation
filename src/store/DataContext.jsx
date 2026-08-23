@@ -31,7 +31,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 import demoData from '../data/demoData'
-import { EMERGENCY_TYPE, SEVERITY, isLowStock, statusLabel, stockStatus } from '../lib/statuses'
+import { EMERGENCY_STATUS, EMERGENCY_TYPE, SEVERITY, isLowStock, statusLabel, stockStatus } from '../lib/statuses'
 import { nextId } from '../lib/format'
 
 /* The context object itself. Components never touch this directly —
@@ -331,6 +331,19 @@ export function DataProvider({ children }) {
             updated.resolved_at = new Date().toISOString()
           }
 
+          /* The same idea for the moment a team picked the incident up.
+             "How long until somebody acknowledged it" is the number an
+             emergency service is actually judged on, and it cannot be
+             worked out afterwards from the record — it only exists if it
+             is stamped here, at the moment it happens.
+
+             The `!updated.acknowledged_at` guard means a second edit does
+             not move the stamp. The first acknowledgement is the one that
+             counts. */
+          if (changes.status === 'RESPONDING' && !updated.acknowledged_at) {
+            updated.acknowledged_at = new Date().toISOString()
+          }
+
           /* Connected effect 2: resolving an incident releases the person
              back to ACTIVE, so the map marker turns from red to green. */
           if (changes.status === 'RESOLVED' && incident.personnel_id) {
@@ -345,7 +358,15 @@ export function DataProvider({ children }) {
           return updated
         })
       )
-      if (changes.status) logActivity('EMERGENCY', `${id} status changed to ${changes.status}`)
+      if (changes.status) {
+        /* statusLabel() for the same reason reportEmergency() uses it: the
+           raw key would print "RESPONDING" in a log whose every other line
+           is written in plain words. */
+        logActivity(
+          'EMERGENCY',
+          `${id} status changed to ${statusLabel(EMERGENCY_STATUS, changes.status)}`
+        )
+      }
     },
     [logActivity]
   )

@@ -798,6 +798,36 @@
   text-align: center;
 }
 
+/* ---------- 4c. EMERGENCY ----------
+   One box per open incident on the response board.
+
+   The LEFT EDGE carries the severity colour. It is set inline from the
+   same tone the severity badge uses, so a critical incident is visible
+   from across a room before you have read a single word — and the stripe
+   can never disagree with the badge beside it, because neither one picks
+   its own colour.
+
+   Sunk one shade darker than the panel it sits in, the same way
+   .forecast-day is, so a row of incidents reads as one board.
+*/
+.incident {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink-low);
+  border-radius: var(--radius);
+  background: var(--navy-950);
+  padding: 12px 14px;
+}
+
+/* Used for the "open for 1h 41m" clock on an incident that nobody has
+   acknowledged yet. Monospaced so the digits do not shuffle sideways
+   every time the minute ticks over. */
+.incident-clock {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
 /* ---------- 5. ANIMATION ----------
    Deliberately minimal. A pulse for live alerts and a fade for
    mounting content. Nothing decorative.

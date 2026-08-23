@@ -170,15 +170,24 @@ export function optionsFrom(map) {
 }
 
 /* ============================================================
-   TONE -> COLOUR, FOR CHARTS ONLY
+   TONE -> COLOUR, WHERE CSS CANNOT DO THE JOB
    ============================================================
-   Everywhere else in the app, a tone becomes a colour through CSS:
+   Almost everywhere in the app, a tone becomes a colour through CSS:
    `tone: 'alert'` renders <span class="badge badge--alert">, and
-   src/index.css decides what orange means.
+   src/index.css decides what orange means. That is always the first
+   choice, because then the colour is defined in exactly one place.
 
-   Charts cannot do that. Recharts draws real SVG shapes, and an SVG
-   `fill` cannot read a CSS variable — fill="var(--orange)" simply does
-   not paint. So a chart needs the colour written out.
+   Two situations cannot use it, and both need the colour written out:
+
+   1. CHARTS. Recharts draws real SVG shapes, and an SVG `fill` cannot
+      read a CSS variable — fill="var(--orange)" simply does not paint.
+
+   2. A COLOUR PICKED FROM DATA AT RUNTIME. The severity stripe down the
+      left edge of an incident card (see src/pages/Emergency.jsx) is one
+      of four colours depending on the record. A stylesheet cannot look
+      at a record, so the component sets that one border colour inline
+      from statusColour(SEVERITY, …). It reads the SAME tone the badge
+      beside it reads, so the two can never disagree.
 
    These eight values are THE SAME COLOURS as the variables in
    src/index.css, copied here as plain text. The comment on each line
